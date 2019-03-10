@@ -1,23 +1,15 @@
-import { Resource } from "@ebryn/jsonapi-ts";
+import { Resource } from "@joelalejandro/jsonapi-ts";
 
 export default class PaymentMethod extends Resource {
-  public attributes: {
-    paymentMethodTypeId: number;
+  public static attributes: {
     name: string;
-    logo: string;
-    expirationDateCheck: boolean;
-    securityCodeLength: number;
-    securityCodeCheck: boolean;
-    cardNumberLengthMax: number;
-    cardNumberLengthMin: number;
-  };
-
-  public relationships: {
-    currency: {
-      data: Array<{ id: string; type: "currency" }>;
-    };
-    bank: {
-      data: Array<{ id: string; type: "bank" }>;
-    };
+    paymentTypeId: string;
+    thumbnail: string;
+    binPattern: string;
+  } = {
+    name: "",
+    paymentTypeId: "",
+    thumbnail: "",
+    binPattern: ""
   };
 }

@@ -1,6 +1,7 @@
-import { Operation, OperationProcessor } from "@ebryn/jsonapi-ts";
-import * as TodoPago from "todo-pago";
+import { Operation, OperationProcessor } from "@joelalejandro/jsonapi-ts";
+import * as MercadoPago from "mercadopago";
 
+import { MPPaymentMethod, MPResponse } from "../../types";
 import PaymentMethod from "./resource";
 
 export default class PaymentMethodProcessor extends OperationProcessor<
@@ -9,75 +10,40 @@ export default class PaymentMethodProcessor extends OperationProcessor<
   public resourceClass = PaymentMethod;
 
   public async get(op: Operation): Promise<PaymentMethod[]> {
-    return new Promise((resolve, reject) => {
-      TodoPago.getPaymentMethods(
-        {
-          endpoint: "developers",
-          Authorization: `TODOPAGO ${process.env.TP_API_KEY}`
+    const paymentMethods = ((await MercadoPago.get(
+      "/v1/payment_methods"
+    )) as MPResponse).body as MPPaymentMethod[];
+
+    if (!op.ref.id) {
+      return paymentMethods
+        .filter(
+          pm =>
+            pm.status === "active" &&
+            !process.env.MP_EXCLUDE_PAYMENT_METHODS.includes(pm.id)
+        )
+        .map(pm => ({
+          id: pm.id,
+          attributes: {
+            name: pm.name,
+            paymentTypeId: pm.payment_type_id,
+            thumbnail: pm.secure_thumbnail
+          },
+          type: "paymentMethod",
+          relationships: {}
+        })) as PaymentMethod[];
+    }
+
+    return paymentMethods
+      .filter(pm => pm.status === "active" && pm.id === op.ref.id)
+      .map(pm => ({
+        id: pm.id,
+        attributes: {
+          name: pm.name,
+          paymentTypeId: pm.payment_type_id,
+          thumbnail: pm.secure_thumbnail
         },
-        process.env.TP_MERCHANT_ID as string,
-        (result, err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          const paymentMethods = this.serializeGet(result);
-
-          resolve(paymentMethods);
-        }
-      );
-    });
-  }
-
-  private serializeGet(
-    data: TodoPago.GetPaymentMethodsResponse
-  ): PaymentMethod[] {
-    const originalPaymentMethodsList =
-      data.PaymentMethodsCollection[0].PaymentMethod;
-    const originalBanksList = data.BanksCollection[0].Bank;
-    const originalPaymentMethodsBankList =
-      data.PaymentMethodBanksCollection[0].PaymentMethodBank;
-
-    return originalPaymentMethodsList.map(paymentMethod => {
-      const attributes = {
-        name: paymentMethod.Name[0],
-        cardNumberLengthMax: Number(paymentMethod.CardNumberLengthMax[0]),
-        cardNumberLengthMin: Number(paymentMethod.CardNumberLengthMin[0]),
-        expirationDateCheck: Boolean(paymentMethod.ExpirationDateCheck[0]),
-        logo: paymentMethod.Logo[0],
-        paymentMethodTypeId: Number(paymentMethod.IdTipoMedioPago[0]),
-        securityCodeCheck: Boolean(paymentMethod.SecurityCodeCheck[0]),
-        securityCodeLength: Number(paymentMethod.SecurityCodeLength[0])
-      };
-
-      const currency = {
-        data: Array.isArray(paymentMethod.CurrenciesCollection[0].Currency)
-          ? paymentMethod.CurrenciesCollection[0].Currency.map(currencyRel => ({
-              id: currencyRel.Id[0],
-              type: "currency"
-            }))
-          : []
-      };
-
-      const bank = {
-        data: originalPaymentMethodsBankList
-          .filter(
-            relatedBank =>
-              relatedBank.PaymentMethodId[0] === paymentMethod.Id[0]
-          )
-          .map(relatedBank => ({ id: relatedBank.BankId[0], type: "bank" }))
-      };
-
-      return {
         type: "paymentMethod",
-        id: paymentMethod.Id[0],
-        attributes,
-        relationships: {
-          currency,
-          bank
-        }
-      } as PaymentMethod;
-    });
+        relationships: {}
+      })) as PaymentMethod[];
   }
 }
