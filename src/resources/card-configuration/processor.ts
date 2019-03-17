@@ -2,7 +2,10 @@ import { Operation, OperationProcessor } from "@joelalejandro/jsonapi-ts";
 import * as MercadoPago from "mercadopago";
 
 import { MPPaymentMethod, MPResponse } from "../../types";
+import Cache, { CacheKeys } from "../cache";
 import CardConfiguration from "./resource";
+
+const cache = Cache.getInstance();
 
 export default class CardConfigurationProcessor extends OperationProcessor<
   CardConfiguration
@@ -10,6 +13,18 @@ export default class CardConfigurationProcessor extends OperationProcessor<
   public resourceClass = CardConfiguration;
 
   public async get(op: Operation): Promise<CardConfiguration[]> {
+    const { bin } = op.params.filter;
+
+    if (!bin) {
+      return;
+    }
+
+    if (cache.isFresh(`${CacheKeys.MERCADOPAGO_CARD_CONFIGURATION}/${bin}`)) {
+      return cache.get<CardConfiguration[]>(
+        `${CacheKeys.MERCADOPAGO_CARD_CONFIGURATION}/${bin}`
+      ).value;
+    }
+
     const paymentMethods = ((await MercadoPago.get(
       "/v1/payment_methods"
     )) as MPResponse).body as MPPaymentMethod[];
@@ -23,13 +38,7 @@ export default class CardConfigurationProcessor extends OperationProcessor<
           pm.payment_type_id === "prepaid_card")
     );
 
-    const { bin } = op.params.filter;
-
-    if (!bin) {
-      return;
-    }
-
-    return cards
+    const response = cards
       // Force all settings to [], because the MP API mixes
       // single objects and arrays under the same key :/
       .map(card => ({
@@ -81,5 +90,9 @@ export default class CardConfigurationProcessor extends OperationProcessor<
         },
         relationships: {}
       })) as CardConfiguration[];
+
+    cache.set(`${CacheKeys.MERCADOPAGO_CARD_CONFIGURATION}/${bin}`, response);
+
+    return response;
   }
 }

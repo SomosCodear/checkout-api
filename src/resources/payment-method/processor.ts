@@ -2,7 +2,10 @@ import { Operation, OperationProcessor } from "@joelalejandro/jsonapi-ts";
 import * as MercadoPago from "mercadopago";
 
 import { MPPaymentMethod, MPResponse } from "../../types";
+import Cache, { CacheKeys } from "../cache";
 import PaymentMethod from "./resource";
+
+const cache = Cache.getInstance();
 
 export default class PaymentMethodProcessor extends OperationProcessor<
   PaymentMethod
@@ -10,6 +13,11 @@ export default class PaymentMethodProcessor extends OperationProcessor<
   public resourceClass = PaymentMethod;
 
   public async get(op: Operation): Promise<PaymentMethod[]> {
+    if (cache.isFresh(CacheKeys.MERCADOPAGO_PAYMENT_METHODS)) {
+      return cache.get<PaymentMethod[]>(CacheKeys.MERCADOPAGO_PAYMENT_METHODS)
+        .value;
+    }
+
     const paymentMethods = ((await MercadoPago.get(
       "/v1/payment_methods"
     )) as MPResponse).body as MPPaymentMethod[];
@@ -33,7 +41,7 @@ export default class PaymentMethodProcessor extends OperationProcessor<
         })) as PaymentMethod[];
     }
 
-    return paymentMethods
+    const response = paymentMethods
       .filter(pm => pm.status === "active" && pm.id === op.ref.id)
       .map(pm => ({
         id: pm.id,
@@ -45,5 +53,9 @@ export default class PaymentMethodProcessor extends OperationProcessor<
         type: "paymentMethod",
         relationships: {}
       })) as PaymentMethod[];
+
+    cache.set(CacheKeys.MERCADOPAGO_PAYMENT_METHODS, response);
+
+    return response;
   }
 }

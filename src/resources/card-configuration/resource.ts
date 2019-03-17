@@ -1,10 +1,5 @@
 import { Resource } from "@joelalejandro/jsonapi-ts";
-import {
-  MPCardValidationType,
-  MPPaymentType,
-  MPSecurityCodeCardLocation,
-  MPSecurityCodeMode
-} from "../../types";
+import { MPSecurityCodeCardLocation } from "../../types";
 
 export default class CardConfiguration extends Resource {
   public static attributes: {
