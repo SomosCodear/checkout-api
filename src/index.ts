@@ -23,13 +23,11 @@ MercadoPago.configure({
 });
 
 const api = new Koa();
-let databaseUrl = process.env.DATABASE_URL;
-
-const db = { client: "pg" };
+let connection = process.env.DATABASE_URL;
 
 if (process.env.NODE_ENV !== "development") {
   // Enforce SSL for DB connections.
-  databaseUrl += "?ssl=true";
+  connection += "?ssl=true";
 
   // Enforce SSL for HTTP requests.
   api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
@@ -41,6 +39,8 @@ if (process.env.NODE_ENV !== "development") {
     await next();
   });
 }
+
+const db = { client: "pg", connection };
 
 const checkout = () =>
   jsonApiKoa(
