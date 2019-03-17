@@ -1,9 +1,11 @@
 import { Application, jsonApiKoa } from "@joelalejandro/jsonapi-ts";
 import * as cors from "@koa/cors";
 import * as Koa from "koa";
+import { KoaLoggingMiddleware as logs } from "logepi";
 import * as MercadoPago from "mercadopago";
 import { resolve } from "path";
 
+import Errors from "./errors";
 import CardConfigurationProcessor from "./resources/card-configuration/processor";
 import CardConfiguration from "./resources/card-configuration/resource";
 import CustomerProcessor from "./resources/customer/processor";
@@ -29,7 +31,7 @@ const db = {
   }
 };
 
-api.use(cors()).use(
+const checkout = () =>
   jsonApiKoa(
     new Application({
       namespace: "api",
@@ -42,7 +44,21 @@ api.use(cors()).use(
         new CustomerProcessor(db)
       ]
     })
-  )
-);
+  );
+
+if (process.env.NODE_ENV !== "development") {
+  api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
+    if (ctx.headers["x-forwarded-proto"] !== "https") {
+      ctx.body = Errors.SSLRequired();
+    }
+
+    await next();
+  });
+}
+
+api
+  .use(cors())
+  .use(checkout())
+  .use(logs());
 
 api.listen(process.env.PORT || 3000);

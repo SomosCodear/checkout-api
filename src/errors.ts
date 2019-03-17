@@ -6,6 +6,10 @@ import {
 
 const Errors = {
   ...JsonApiErrors,
+  SSLRequired: (): JsonApiError => ({
+    status: HttpStatusCode.Forbidden,
+    code: "ssl_required"
+  }),
   DataRequired: (fieldName: string): JsonApiError => ({
     status: HttpStatusCode.BadRequest,
     code: "data_required",
