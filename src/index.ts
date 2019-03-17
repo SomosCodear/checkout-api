@@ -45,4 +45,4 @@ api.use(cors()).use(
   )
 );
 
-api.listen(3000);
+api.listen(process.env.PORT || 3000);
