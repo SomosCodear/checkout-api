@@ -5,64 +5,34 @@ import {
   Resource,
   ResourceRelationship
 } from "@joelalejandro/jsonapi-ts";
-import { randomBytes } from "crypto";
 
 import * as MercadoPago from "mercadopago";
 import Purchase from "./resource";
+
+import { MPPayerData } from "../../types";
 
 export default class PurchaseProcessor extends KnexProcessor<Purchase> {
   public resourceClass = Purchase;
 
   public async add(op: Operation) {
-    const { data } = op;
+    const data = { ...op.data };
 
-    // 1. Get all tickets to figure out quantity and total price.
-    const tickets = data.relationships.ticket.data as ResourceRelationship[];
-    const ticketCount = tickets.length;
-    const totalPrice = (await this.app.executeOperations(
-      tickets.map(
-        ticket =>
-          ({
-            op: "get",
-            ref: ticket,
-            params: {
-              fields: {
-                ticket: ["price"]
-              }
-            } as JsonApiParams
-          } as Operation)
-      )
-    ))
-      .map(
-        operationResponse =>
-          (operationResponse.data as Resource[])[0].attributes.price
-      )
-      .reduce((priceSum: number, price: number) => priceSum + price, 0);
+    // 1: Get all tickets to figure out quantity and total price.
+    const { ticketCount, totalPrice, tickets } = await this.getTickets(data
+      .relationships.ticket.data as ResourceRelationship[]);
 
-    // 2: Create payer data.
-    const payer = {
-      email: data.attributes.payerEmail,
-      identification: {
-        type: data.attributes.payerIdentificationType,
-        number: data.attributes.payerIdentificationNumber
-      },
-      first_name: data.attributes.payerFirstName,
-      last_name: data.attributes.payerLastName
-    };
+    // 2: Create payer data from customer record.
+    const payer = await this.getPayerData(data.relationships.customer
+      .data as ResourceRelationship);
 
     // 3: Execute Mercado Pago payment.
-    const payment: {
-      id: string;
-      status: string;
-    } = (await MercadoPago.payment.create({
+    const payment = await this.postPayment({
       payer,
-      binary_mode: false,
-      description: `${ticketCount} x Entradas Córdoba WebConf 2019`,
-      metadata: {},
-      transaction_amount: totalPrice,
-      payment_method_id: data.attributes.paymentMethod,
-      card_token_id: data.attributes
-    })).response;
+      ticketCount,
+      totalPrice,
+      paymentMethod: data.attributes.paymentMethod as string,
+      cardToken: data.attributes.cardId as string
+    });
 
     // 4: Create the Purchase itself.
     data.attributes = {
@@ -75,39 +45,157 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     const purchase = await super.add({ ...op, data });
 
     // 5: Store the Payment, related to the purchase.
-    const checkoutPayment = {
-      datePaid: new Date().toJSON(),
-      paymentType: data.attributes.paymentType,
-      paymentMethod: data.attributes.paymentMethod,
-      issuer: data.attributes.issuer,
-      installments: data.attributes.installments,
-      cardId: data.attributes.cardId,
-      amountDue: totalPrice,
-      amountPaid: totalPrice, // not really
-      interestFee: 0, // also, not really
-      gatewayFee: 0, // also, very much not really
-      status: payment.status
-    };
-
-    console.log(checkoutPayment);
+    const checkoutPayment = await this.savePaymentResponse(purchase);
 
     // 6: Generate QR codes for each ticket.
     // TODO: HOW?
 
     // 7: Update the tickets with the new purchase ID, their new owner and the status
     // according to the payment operation result.
-
-    // STAP: Hold your horses.
+    await this.bindTicketsToPurchase(tickets, purchase);
 
     return {
-      id: randomBytes(10).toString("hex"),
-      attributes: {
-        ...op.data.attributes,
-        paymentID: payment.id,
-        paymentStatus: payment.status
-      },
       type: "purchase",
+      id: purchase.id,
+      attributes: {
+        ...purchase.attributes,
+        paymentID: checkoutPayment.id,
+        paymentStatus: checkoutPayment.attributes.status
+      },
       relationships: {}
     } as Purchase;
+  }
+
+  private async getTickets(
+    tickets: ResourceRelationship[]
+  ): Promise<{ ticketCount: number; totalPrice: number; tickets: Resource[] }> {
+    const ticketCount: number = tickets.length;
+    const ticketRecords = (await this.app.executeOperations(
+      tickets.map(
+        ticket =>
+          ({
+            op: "get",
+            ref: ticket,
+            params: {
+              fields: {
+                ticket: ["price"]
+              }
+            } as JsonApiParams
+          } as Operation)
+      )
+    )).map(operationResponse => (operationResponse.data as Resource[])[0]);
+    const totalPrice: number = ticketRecords
+      .map(record => record.attributes.price as number)
+      .reduce((priceSum: number, price: number) => priceSum + price, 0);
+
+    return { ticketCount, totalPrice, tickets: ticketRecords };
+  }
+
+  private async getPayerData(
+    customer: ResourceRelationship
+  ): Promise<MPPayerData> {
+    const [customerProcessorResponse] = await this.app.executeOperations([
+      {
+        op: "get",
+        ref: customer
+      } as Operation
+    ]);
+    const [customerResponse] = customerProcessorResponse.data as Resource[];
+    const payer: MPPayerData = {
+      email: customerResponse.attributes.emailAddress as string,
+      identification: {
+        type: customerResponse.attributes.identificationType as string,
+        number: customerResponse.attributes.identificationNumber as string
+      },
+      first_name: customerResponse.attributes.firstName as string,
+      last_name: customerResponse.attributes.lastName as string
+    };
+
+    return payer;
+  }
+
+  private async postPayment(data: {
+    payer: MPPayerData;
+    ticketCount: number;
+    totalPrice: number;
+    paymentMethod: string;
+    cardToken?: string;
+  }) {
+    const payment: {
+      id: string;
+      status: string;
+    } = (await MercadoPago.payment.create({
+      payer: data.payer,
+      binary_mode: false,
+      description: `${data.ticketCount} x Entradas Córdoba WebConf 2019`,
+      metadata: {},
+      transaction_amount: data.totalPrice,
+      payment_method_id: data.paymentMethod,
+      ...(data.cardToken ? { card_token_id: data.cardToken } : {})
+    })).response;
+
+    return payment;
+  }
+
+  private calculateGatewayFee(totalPrice: number) {
+    return (
+      // Ticket prices
+      totalPrice *
+      // Mercado Pago fee (i.e. 5.99%)
+      (Number(process.env.MP_GATEWAY_FEE) / 100) *
+      // VAT (i.e. 21%)
+      (1 + Number(process.env.VAT_RATE) / 100)
+    );
+  }
+
+  private async savePaymentResponse(purchase: Resource) {
+    const gatewayFee = this.calculateGatewayFee(purchase.attributes
+      .amountDue as number);
+
+    const checkoutPayment = {
+      ...purchase.attributes,
+      gatewayFee,
+      datePaid: new Date().toJSON(),
+      purchaseId: purchase.id
+    };
+
+    const [id] = await this.knex("Payments")
+      .insert(checkoutPayment)
+      .returning("id");
+
+    return {
+      id,
+      type: "payment",
+      attributes: {
+        ...checkoutPayment
+      },
+      relationships: {}
+    } as Resource;
+  }
+
+  private async bindTicketsToPurchase(
+    tickets: Resource[],
+    purchase: Resource
+  ): Promise<void> {
+    await this.app.executeOperations(
+      tickets.map(
+        ticket =>
+          ({
+            op: "update",
+            data: {
+              type: "ticket",
+              id: ticket.id as string,
+              attributes: {
+                purchaseId: purchase.id as string
+              },
+              relationships: {}
+            } as Resource,
+            ref: {
+              type: "ticket",
+              id: ticket.id as string
+            }
+          } as Operation)
+      )
+    );
   }
 }

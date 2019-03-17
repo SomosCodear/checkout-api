@@ -73,6 +73,16 @@ export type MPPaymentMethod = {
   settings: MPPaymentMethodSettings | MPPaymentMethodSettings[];
 };
 
+export type MPPayerData = {
+  email: string;
+  identification: {
+    type: string;
+    number: string;
+  };
+  first_name: string;
+  last_name: string;
+};
+
 export type TicketType = "attendee" | "sponsored" | "speaker" | "staff";
 
 export type TicketStatus = "forSale" | "booked" | "owned" | "blocked";
