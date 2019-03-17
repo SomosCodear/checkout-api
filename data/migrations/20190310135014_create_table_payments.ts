@@ -6,6 +6,7 @@ export async function up(knex: Knex): Promise<any> {
       .uuid("id")
       .primary("pk_payments")
       .notNullable();
+    table.string("externalId").notNullable();
     table.dateTime("datePaid").notNullable();
     table.uuid("purchaseId").notNullable();
     table.string("paymentType", 25).notNullable();
