@@ -13,9 +13,17 @@ export default class PaymentMethodProcessor extends OperationProcessor<
   public resourceClass = PaymentMethod;
 
   public async get(op: Operation): Promise<PaymentMethod[]> {
-    if (cache.isFresh(CacheKeys.MERCADOPAGO_PAYMENT_METHODS)) {
+    if (cache.isFresh(CacheKeys.MERCADOPAGO_PAYMENT_METHODS) && !op.ref.id) {
       return cache.get<PaymentMethod[]>(CacheKeys.MERCADOPAGO_PAYMENT_METHODS)
         .value;
+    }
+
+    if (
+      cache.isFresh(`${CacheKeys.MERCADOPAGO_PAYMENT_METHODS}/${op.ref.id}`)
+    ) {
+      return cache.get<PaymentMethod[]>(
+        `${CacheKeys.MERCADOPAGO_PAYMENT_METHODS}/${op.ref.id}`
+      ).value;
     }
 
     const paymentMethods = ((await MercadoPago.get(
@@ -23,7 +31,7 @@ export default class PaymentMethodProcessor extends OperationProcessor<
     )) as MPResponse).body as MPPaymentMethod[];
 
     if (!op.ref.id) {
-      return paymentMethods
+      const activePaymentMethods = paymentMethods
         .filter(
           pm =>
             pm.status === "active" &&
@@ -39,6 +47,10 @@ export default class PaymentMethodProcessor extends OperationProcessor<
           type: "paymentMethod",
           relationships: {}
         })) as PaymentMethod[];
+
+      cache.set(CacheKeys.MERCADOPAGO_PAYMENT_METHODS, activePaymentMethods);
+
+      return activePaymentMethods;
     }
 
     const response = paymentMethods
@@ -54,7 +66,10 @@ export default class PaymentMethodProcessor extends OperationProcessor<
         relationships: {}
       })) as PaymentMethod[];
 
-    cache.set(CacheKeys.MERCADOPAGO_PAYMENT_METHODS, response);
+    cache.set<PaymentMethod[]>(
+      `${CacheKeys.MERCADOPAGO_PAYMENT_METHODS}/${op.ref.id}`,
+      response
+    );
 
     return response;
   }
