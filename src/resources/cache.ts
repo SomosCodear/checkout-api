@@ -16,3 +16,5 @@ export default class Cache {
     return cache;
   }
 }
+
+Cache.initialize();
