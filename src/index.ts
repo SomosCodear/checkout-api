@@ -50,6 +50,7 @@ if (process.env.NODE_ENV !== "development") {
   api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
     if (ctx.headers["x-forwarded-proto"] !== "https") {
       ctx.body = Errors.SSLRequired();
+      return;
     }
 
     await next();
