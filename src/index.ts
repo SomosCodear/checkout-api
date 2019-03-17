@@ -23,13 +23,24 @@ MercadoPago.configure({
 });
 
 const api = new Koa();
+let databaseUrl = process.env.DATABASE_URL;
 
-const db = {
-  client: "sqlite3",
-  connection: {
-    filename: resolve(__dirname, "../checkout.db")
-  }
-};
+const db = { client: "pg" };
+
+if (process.env.NODE_ENV !== "development") {
+  // Enforce SSL for DB connections.
+  databaseUrl += "?ssl=true";
+
+  // Enforce SSL for HTTP requests.
+  api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
+    if (ctx.headers["x-forwarded-proto"] !== "https") {
+      ctx.body = Errors.SSLRequired();
+      return;
+    }
+
+    await next();
+  });
+}
 
 const checkout = () =>
   jsonApiKoa(
@@ -45,17 +56,6 @@ const checkout = () =>
       ]
     })
   );
-
-if (process.env.NODE_ENV !== "development") {
-  api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
-    if (ctx.headers["x-forwarded-proto"] !== "https") {
-      ctx.body = Errors.SSLRequired();
-      return;
-    }
-
-    await next();
-  });
-}
 
 api
   .use(cors())

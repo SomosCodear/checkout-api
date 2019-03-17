@@ -3,10 +3,8 @@ const { resolve } = require("path");
 
 module.exports = {
   development: {
-    client: "sqlite3",
-    connection: {
-      filename: resolve(__dirname, "./checkout.db")
-    },
+    client: "pg",
+    connection: `${process.env.DATABASE_URL}?ssl=true`,
     migrations: {
       directory: "data/migrations",
       tableName: "__knex__migrations__"
