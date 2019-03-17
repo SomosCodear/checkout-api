@@ -6,6 +6,7 @@ import * as MercadoPago from "mercadopago";
 
 import Errors from "./errors";
 import Cache from "./resources/cache";
+
 import CardConfigurationProcessor from "./resources/card-configuration/processor";
 import CardConfiguration from "./resources/card-configuration/resource";
 import CustomerProcessor from "./resources/customer/processor";
@@ -21,8 +22,6 @@ MercadoPago.configure({
   sandbox: Boolean(process.env.MP_SANDBOX),
   access_token: process.env.MP_ACCESS_TOKEN
 });
-
-Cache.initialize();
 
 const api = new Koa();
 let connection = process.env.DATABASE_URL;
