@@ -28,11 +28,39 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
       await this.getTicketPrice(assignedTicketId)
     );
 
-    return super.update({
+    const updatedTicket = await super.update({
       ...op,
       data: ticket,
       ref: { type: "Ticket", id: assignedTicketId }
     } as Operation);
+
+    updatedTicket.relationships = {
+      event: {
+        data: {
+          id: updatedTicket.attributes.eventId as string,
+          type: "event"
+        }
+      },
+      ticketType: {
+        data: {
+          id: updatedTicket.attributes.ticketTypeId as string,
+          type: "ticketType"
+        }
+      },
+      customer: {
+        data: {
+          id: updatedTicket.attributes.customerId as string,
+          type: "customer"
+        }
+      }
+    };
+
+    delete updatedTicket.attributes.customerId;
+    delete updatedTicket.attributes.eventId;
+    delete updatedTicket.attributes.ticketTypeId;
+    delete updatedTicket.attributes.purchaseId;
+
+    return updatedTicket;
   }
 
   private async getFirstSellableTicketId(): Promise<string> {
