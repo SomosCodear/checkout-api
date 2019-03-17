@@ -6,12 +6,10 @@ export default class Customer extends Resource {
     emailAddress: string;
     identificationType: string;
     identificationNumber: string;
-    dateRegistered: string;
   } = {
     fullName: "",
     emailAddress: "",
     identificationType: "",
-    identificationNumber: "",
-    dateRegistered: new Date().toJSON()
+    identificationNumber: ""
   };
 }

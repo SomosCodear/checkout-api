@@ -4,8 +4,12 @@ import { TicketStatus } from "../../types";
 export default class Ticket extends Resource {
   public static attributes: {
     status: TicketStatus;
+    ticketTypeId: string;
+    price: number;
   } = {
-    status: "forSale"
+    status: "forSale",
+    ticketTypeId: "attendee",
+    price: 0
   };
 
   public relationships: {

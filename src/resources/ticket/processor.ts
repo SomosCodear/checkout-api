@@ -1,7 +1,6 @@
 import {
   KnexProcessor,
   Operation,
-  Resource,
   ResourceRelationship
 } from "@joelalejandro/jsonapi-ts";
 import Errors from "../../errors";
@@ -17,17 +16,22 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
       throw Errors.DataRequired("relationships.customer");
     }
 
-    ticket.attributes.customerID = (ticket.relationships.customer
+    ticket.attributes.customerId = (ticket.relationships.customer
       .data as ResourceRelationship).id as string;
 
+    ticket.attributes.status = "booked";
+    ticket.attributes.dateBooked = new Date().toJSON();
     ticket.relationships = {};
 
     const assignedTicketId = await this.getFirstSellableTicketId();
+    ticket.attributes.price = Number(
+      await this.getTicketPrice(assignedTicketId)
+    );
 
     return super.update({
       ...op,
       data: ticket,
-      ref: { type: "ticket", id: assignedTicketId }
+      ref: { type: "Ticket", id: assignedTicketId }
     } as Operation);
   }
 
@@ -42,5 +46,25 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
       .limit(1);
 
     return id;
+  }
+
+  private async getTicketPrice(ticketId: string): Promise<number> {
+    const [{ ticketTypeId, eventId }] = await this.knex("Tickets")
+      .select("ticketTypeId", "eventId")
+      .where({
+        id: ticketId
+      })
+      .limit(1);
+
+    const [{ defaultPrice }] = await this.knex("TicketTypes")
+      .select("defaultPrice")
+      .where({
+        id: ticketTypeId,
+        eventId,
+        canBePurchased: true
+      })
+      .limit(1);
+
+    return Number(defaultPrice);
   }
 }

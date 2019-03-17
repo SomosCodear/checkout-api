@@ -5,8 +5,9 @@ import {
   Resource,
   ResourceRelationship
 } from "@joelalejandro/jsonapi-ts";
-
 import * as MercadoPago from "mercadopago";
+import uuid = require("uuid");
+
 import Purchase from "./resource";
 
 import { MPPayerData } from "../../types";
@@ -22,8 +23,8 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       .relationships.ticket.data as ResourceRelationship[]);
 
     // 2: Create payer data from customer record.
-    const payer = await this.getPayerData(data.relationships.customer
-      .data as ResourceRelationship);
+    const customer = data.relationships.customer.data as ResourceRelationship;
+    const payer = await this.getPayerData(customer);
 
     // 3: Execute Mercado Pago payment.
     const payment = await this.postPayment({
@@ -35,17 +36,35 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     });
 
     // 4: Create the Purchase itself.
+    data.id = uuid.v4();
     data.attributes = {
-      ...op.data.attributes,
       dateCreated: new Date().toJSON(),
       status: payment.status === "approved" ? "paid" : "unpaid",
-      amountBilled: totalPrice
+      amountBilled: totalPrice,
+      customerId: customer.id
     };
 
-    const purchase = await super.add({ ...op, data });
+    const [purchaseRecord] = await this.knex("Purchases")
+      .insert({
+        id: data.id,
+        ...data.attributes
+      })
+      .returning(["id", "dateCreated", "status", "amountBilled", "customerId"]);
+
+    const purchase = {
+      id: purchaseRecord.id,
+      type: "purchase",
+      relationships: {},
+      attributes: {
+        dateCreated: purchaseRecord.dateCreated,
+        status: purchaseRecord.status,
+        amountBilled: purchaseRecord.amountBilled,
+        customerId: purchaseRecord.customerId
+      }
+    };
 
     // 5: Store the Payment, related to the purchase.
-    const checkoutPayment = await this.savePaymentResponse(purchase);
+    const checkoutPayment = await this.savePaymentResponse(purchase, payment);
 
     // 6: Generate QR codes for each ticket.
     // TODO: HOW?
@@ -55,14 +74,15 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     await this.bindTicketsToPurchase(tickets, purchase);
 
     return {
-      type: "purchase",
-      id: purchase.id,
-      attributes: {
-        ...purchase.attributes,
-        paymentID: checkoutPayment.id,
-        paymentStatus: checkoutPayment.attributes.status
-      },
-      relationships: {}
+      ...purchase,
+      relationships: {
+        payment: {
+          data: {
+            id: checkoutPayment.id,
+            type: checkoutPayment.type
+          }
+        }
+      }
     } as Purchase;
   }
 
@@ -70,22 +90,12 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     tickets: ResourceRelationship[]
   ): Promise<{ ticketCount: number; totalPrice: number; tickets: Resource[] }> {
     const ticketCount: number = tickets.length;
-    const ticketRecords = (await this.app.executeOperations(
-      tickets.map(
-        ticket =>
-          ({
-            op: "get",
-            ref: ticket,
-            params: {
-              fields: {
-                ticket: ["price"]
-              }
-            } as JsonApiParams
-          } as Operation)
-      )
-    )).map(operationResponse => (operationResponse.data as Resource[])[0]);
+    const ticketRecords = await this.knex("Tickets")
+      .select()
+      .where("id", "in", tickets.map(ticket => ticket.id));
+
     const totalPrice: number = ticketRecords
-      .map(record => record.attributes.price as number)
+      .map(record => Number(record.price))
       .reduce((priceSum: number, price: number) => priceSum + price, 0);
 
     return { ticketCount, totalPrice, tickets: ticketRecords };
@@ -94,21 +104,21 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
   private async getPayerData(
     customer: ResourceRelationship
   ): Promise<MPPayerData> {
-    const [customerProcessorResponse] = await this.app.executeOperations([
-      {
-        op: "get",
-        ref: customer
-      } as Operation
-    ]);
-    const [customerResponse] = customerProcessorResponse.data as Resource[];
+    const [data] = await this.knex("Customers")
+      .select()
+      .where("id", customer.id);
+
     const payer: MPPayerData = {
-      email: customerResponse.attributes.emailAddress as string,
+      email: data.emailAddress as string,
       identification: {
-        type: customerResponse.attributes.identificationType as string,
-        number: customerResponse.attributes.identificationNumber as string
+        type: data.identificationType as string,
+        number: data.identificationNumber as string
       },
-      first_name: customerResponse.attributes.firstName as string,
-      last_name: customerResponse.attributes.lastName as string
+      first_name: data.fullName.split(" ")[0] as string,
+      last_name: data.fullName
+        .split(" ")
+        .slice(1)
+        .join(" ") as string
     };
 
     return payer;
@@ -129,7 +139,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       binary_mode: false,
       description: `${data.ticketCount} x Entradas Córdoba WebConf 2019`,
       metadata: {},
-      transaction_amount: data.totalPrice,
+      transaction_amount: Number(data.totalPrice),
       payment_method_id: data.paymentMethod,
       ...(data.cardToken ? { card_token_id: data.cardToken } : {})
     })).response;
@@ -148,54 +158,54 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     );
   }
 
-  private async savePaymentResponse(purchase: Resource) {
+  private async savePaymentResponse(purchase: Resource, payment: any) {
     const gatewayFee = this.calculateGatewayFee(purchase.attributes
-      .amountDue as number);
+      .amountBilled as number);
 
-    const checkoutPayment = {
-      ...purchase.attributes,
-      gatewayFee,
+    const attributes = {
+      externalId: payment.id,
       datePaid: new Date().toJSON(),
-      purchaseId: purchase.id
+      purchaseId: purchase.id,
+      paymentType: payment.payment_type_id,
+      paymentMethod: payment.payment_method_id,
+      issuer: payment.issuer_id,
+      installments: payment.installments,
+      cardId: payment.card_id,
+      amountDue: purchase.attributes.amountBilled,
+      amountPaid: 0,
+      interestFee: 0,
+      gatewayFee,
+      status: payment.status
     };
 
     const [id] = await this.knex("Payments")
-      .insert(checkoutPayment)
+      .insert({
+        id: uuid.v4(),
+        ...attributes
+      })
       .returning("id");
 
-    return {
+    const paymentResource = {
       id,
       type: "payment",
-      attributes: {
-        ...checkoutPayment
-      },
+      attributes,
       relationships: {}
-    } as Resource;
+    };
+
+    this.include([paymentResource]);
+
+    return paymentResource as Resource;
   }
 
   private async bindTicketsToPurchase(
     tickets: Resource[],
     purchase: Resource
   ): Promise<void> {
-    await this.app.executeOperations(
-      tickets.map(
-        ticket =>
-          ({
-            op: "update",
-            data: {
-              type: "ticket",
-              id: ticket.id as string,
-              attributes: {
-                purchaseId: purchase.id as string
-              },
-              relationships: {}
-            } as Resource,
-            ref: {
-              type: "ticket",
-              id: ticket.id as string
-            }
-          } as Operation)
-      )
-    );
+    await this.knex("Tickets")
+      .update({
+        purchaseId: purchase.id,
+        status: "owned"
+      })
+      .where("id", "in", tickets.map(ticket => ticket.id));
   }
 }
