@@ -1,6 +1,7 @@
 import { Application, jsonApiKoa } from "@joelalejandro/jsonapi-ts";
 import * as cors from "@koa/cors";
 import * as Koa from "koa";
+import * as bodyParser from "koa-bodyparser";
 import { KoaLoggingMiddleware as logs } from "logepi";
 import * as MercadoPago from "mercadopago";
 
@@ -18,10 +19,10 @@ import Purchase from "./resources/purchase/resource";
 import TicketProcessor from "./resources/ticket/processor";
 import Ticket from "./resources/ticket/resource";
 
-MercadoPago.configure({
-  sandbox: Boolean(process.env.MP_SANDBOX),
-  access_token: process.env.MP_ACCESS_TOKEN
-});
+// MercadoPago.configure({
+//   sandbox: Boolean(process.env.MP_SANDBOX),
+//   access_token: process.env.MP_ACCESS_TOKEN
+// });
 
 const api = new Koa();
 let connection = process.env.DATABASE_URL;
@@ -60,6 +61,23 @@ const checkout = () =>
 
 api
   .use(cors())
+  .use(async (ctx, next) => {
+    if (!ctx.request.url.includes("/ipn/success")) {
+      return next();
+    }
+
+    const noop = async () => {
+      return;
+    };
+
+    await bodyParser()(ctx, noop);
+
+    ctx.body = {
+      params: ctx.request.query,
+      headers: ctx.request.headers,
+      body: ctx.request.body
+    };
+  })
   .use(checkout())
   .use(logs());
 
