@@ -28,6 +28,7 @@
     "knex": "^0.16.3",
     "koa": "^2.7.0",
     "koa-bodyparser": "^4.2.1",
+    "koa-ssl": "joelalejandro/koa-ssl",
     "logepi": "^1.0.5",
     "mercadopago": "^1.0.22",
     "pg": "^7.9.0",
