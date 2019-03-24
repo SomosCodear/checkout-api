@@ -1,7 +1,7 @@
 import { Application, jsonApiKoa } from "@joelalejandro/jsonapi-ts";
 import * as cors from "@koa/cors";
 import * as Koa from "koa";
-import * as bodyParser from "koa-bodyparser";
+import ssl from "koa-ssl";
 import { KoaLoggingMiddleware as logs } from "logepi";
 import * as MercadoPago from "mercadopago";
 
@@ -18,6 +18,7 @@ import PurchaseProcessor from "./resources/purchase/processor";
 import Purchase from "./resources/purchase/resource";
 import TicketProcessor from "./resources/ticket/processor";
 import Ticket from "./resources/ticket/resource";
+import ipnWebhook from "./webhooks/ipn";
 
 // MercadoPago.configure({
 //   sandbox: Boolean(process.env.MP_SANDBOX),
@@ -30,16 +31,6 @@ let connection = process.env.DATABASE_URL;
 if (process.env.NODE_ENV !== "development") {
   // Enforce SSL for DB connections.
   connection += "?ssl=true";
-
-  // Enforce SSL for HTTP requests.
-  api.use(async (ctx: Koa.Context, next: () => Promise<void>) => {
-    if (ctx.headers["x-forwarded-proto"] !== "https") {
-      ctx.body = Errors.SSLRequired();
-      return;
-    }
-
-    await next();
-  });
 }
 
 const db = { client: "pg", connection };
@@ -48,10 +39,14 @@ const checkout = () =>
   jsonApiKoa(
     new Application({
       namespace: "api",
-      types: [CardConfiguration, PaymentMethod, Purchase, Ticket, Customer],
+      types: [
+        /* CardConfiguration, PaymentMethod,  */ Purchase,
+        Ticket,
+        Customer
+      ],
       processors: [
-        new CardConfigurationProcessor(),
-        new PaymentMethodProcessor(),
+        // new CardConfigurationProcessor(),
+        // new PaymentMethodProcessor(),
         new PurchaseProcessor(db),
         new TicketProcessor(db),
         new CustomerProcessor(db)
@@ -61,23 +56,16 @@ const checkout = () =>
 
 api
   .use(cors())
-  .use(async (ctx, next) => {
-    if (!ctx.request.url.includes("/ipn/success")) {
-      return next();
-    }
-
-    const noop = async () => {
-      return;
-    };
-
-    await bodyParser()(ctx, noop);
-
-    ctx.body = {
-      params: ctx.request.query,
-      headers: ctx.request.headers,
-      body: ctx.request.body
-    };
-  })
+  .use(
+    ssl({
+      trustProxy: true,
+      disallow: ctx => {
+        ctx.body = Errors.SSLRequired();
+        ctx.status = 400;
+      }
+    })
+  )
+  .use(ipnWebhook())
   .use(checkout())
   .use(logs());
 
