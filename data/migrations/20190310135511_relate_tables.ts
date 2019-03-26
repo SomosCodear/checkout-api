@@ -28,14 +28,6 @@ export async function up(knex: Knex): Promise<any> {
         .onUpdate("cascade")
         .onDelete("cascade");
     }),
-    knex.schema.alterTable("Purchases", table => {
-      table
-        .foreign("customerId")
-        .references("id")
-        .inTable("Customers")
-        .onUpdate("cascade")
-        .onDelete("cascade");
-    }),
     knex.schema.alterTable("Payments", table => {
       table
         .foreign("purchaseId")
@@ -62,9 +54,6 @@ export async function down(knex: Knex): Promise<any> {
       table.dropForeign(["purchaseId"]);
       table.dropForeign(["eventId"]);
       table.dropForeign(["ticketTypeId"]);
-    }),
-    knex.schema.alterTable("Purchases", table => {
-      table.dropForeign(["customerId"]);
     }),
     knex.schema.alterTable("Payments", table => {
       table.dropForeign(["purchaseId"]);
