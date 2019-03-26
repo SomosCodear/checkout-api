@@ -17,6 +17,8 @@ import ipnWebhook from "./webhooks/ipn";
 import purchaseFailedWebhook from "./webhooks/purchase-failed";
 import purchasePendingWebhook from "./webhooks/purchase-pending";
 import purchaseSuccessWebhook from "./webhooks/purchase-success";
+import Payment from "./resources/payment/resource";
+import PaymentProcessor from "./resources/payment/processor";
 
 MercadoPago.configure({
   client_id: process.env.MP_CLIENT_ID,
@@ -33,18 +35,18 @@ if (process.env.NODE_ENV !== "development") {
 
 const db = { client: "pg", connection };
 
-const checkout = () =>
-  jsonApiKoa(
-    new Application({
-      namespace: "api",
-      types: [Purchase, Ticket, Customer],
-      processors: [
-        new PurchaseProcessor(db),
-        new TicketProcessor(db),
-        new CustomerProcessor(db)
-      ]
-    })
-  );
+const application = new Application({
+  namespace: "api",
+  types: [Purchase, Ticket, Customer, Payment],
+  processors: [
+    new PurchaseProcessor(db),
+    new TicketProcessor(db),
+    new CustomerProcessor(db),
+    new PaymentProcessor(db)
+  ]
+});
+
+const checkout = () => jsonApiKoa(application);
 
 api
   .use(cors())
@@ -58,9 +60,9 @@ api
     })
   )
   .use(ipnWebhook())
-  .use(purchaseSuccessWebhook())
-  .use(purchasePendingWebhook())
-  .use(purchaseFailedWebhook())
+  .use(purchaseSuccessWebhook(application))
+  .use(purchasePendingWebhook(application))
+  .use(purchaseFailedWebhook(application))
   .use(checkout())
   .use(logs());
 

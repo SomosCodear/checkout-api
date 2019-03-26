@@ -35,12 +35,19 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       externalId: preference.id
     };
 
+    op.ref.id = purchase.id;
     await super.add({ ...op, data: purchase });
 
     // 4: Mark the tickets as booked.
     await this.bindTicketsToPurchase(tickets, purchase);
 
     return purchase;
+  }
+
+  public async removeById(id: string): Promise<void> {
+    await this.knex("Purchases")
+      .where({ id })
+      .delete();
   }
 
   private async getTickets(
@@ -138,17 +145,6 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     )).response;
 
     return preference;
-  }
-
-  private calculateGatewayFee(totalPrice: number) {
-    return (
-      // Ticket prices
-      totalPrice *
-      // Mercado Pago fee (i.e. 5.99%)
-      (Number(process.env.MP_GATEWAY_FEE) / 100) *
-      // VAT (i.e. 21%)
-      (1 + Number(process.env.VAT_RATE) / 100)
-    );
   }
 
   private async bindTicketsToPurchase(

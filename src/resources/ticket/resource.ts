@@ -10,10 +10,16 @@ export default class Ticket extends Resource {
     status: TicketStatus;
     ticketTypeId: string;
     price: number;
+    purchaseId?: string;
+    customerId?: string;
+    eventId?: string;
   } = {
     status: "forSale",
     ticketTypeId: "attendee",
-    price: 0
+    price: 0,
+    purchaseId: "",
+    customerId: "",
+    eventId: ""
   };
 
   public relationships: {

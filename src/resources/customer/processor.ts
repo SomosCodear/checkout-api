@@ -10,6 +10,12 @@ import Customer from "./resource";
 export default class CustomerProcessor extends KnexProcessor<Customer> {
   public resourceClass = Customer;
 
+  public async removeById(id: string): Promise<void> {
+    await this.knex("Customers")
+      .where({ id })
+      .delete();
+  }
+
   public async add(op: Operation): Promise<Customer> {
     const customer = op.data;
 

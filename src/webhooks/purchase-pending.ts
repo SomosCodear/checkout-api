@@ -1,13 +1,25 @@
+import { Application, Operation, Resource } from "@joelalejandro/jsonapi-ts";
 import { Context } from "koa";
 import * as bodyParser from "koa-bodyparser";
 import * as MercadoPago from "mercadopago";
+import uuid = require("uuid");
+import PaymentProcessor from "../resources/payment/processor";
+import TicketProcessor from "../resources/ticket/processor";
 
-const noop = async () => {
-  return;
-};
+export default (application: Application) => {
+  const noop = async () => {
+    return;
+  };
 
-export default () =>
-  async function purchasePendingWebhook(
+  const ticketProcessor = application.processorFor({
+    ref: { type: "Ticket", id: "", lid: "", relationship: "" }
+  } as Operation) as TicketProcessor;
+
+  const paymentProcessor = application.processorFor({
+    ref: { type: "Payment", id: "", lid: "", relationship: "" }
+  } as Operation) as PaymentProcessor;
+
+  return async function purchasePendingWebhook(
     ctx: Context,
     next: () => Promise<void>
   ) {
@@ -18,16 +30,30 @@ export default () =>
     await bodyParser()(ctx, noop);
 
     const {
-      preference_id,
-      external_reference,
+      external_reference, // These are the ticket IDs
       merchant_order_id
     } = ctx.request.query;
+    const order = (await MercadoPago.merchant_orders.findById(
+      merchant_order_id
+    )).response;
+    const [lastPayment] = order.payments.slice(-1);
+    const payment = (await MercadoPago.payment.findById(lastPayment.id))
+      .response;
+    const paymentLocalId = uuid.v4();
+    const [firstTicketId] = external_reference.split("|");
+    const ticket = await ticketProcessor.getTicketById(firstTicketId);
 
-    const order = await MercadoPago.merchant_orders.findById(merchant_order_id);
+    await paymentProcessor.addPayment({
+      paymentLocalId,
+      lastPayment,
+      payment,
+      order,
+      purchaseId: ticket.attributes.purchaseId
+    });
 
-    ctx.body = {
-      params: ctx.request.query,
-      headers: ctx.request.headers,
-      body: order
-    };
+    // TODO: Send e-mail here.
+    // lambda.mail()
+
+    ctx.redirect(`${process.env.WEBCONF_CONGRATS_PENDING}/${paymentLocalId}`);
   };
+};

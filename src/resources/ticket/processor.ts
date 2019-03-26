@@ -9,6 +9,37 @@ import Ticket from "./resource";
 export default class TicketProcessor extends KnexProcessor<Ticket> {
   public resourceClass = Ticket;
 
+  public async getTicketById(id: string): Promise<Ticket> {
+    const ticket = await this.knex("Tickets")
+      .where({ id })
+      .first();
+
+    return Promise.resolve(this.asResource(ticket));
+  }
+
+  public async markAsOwned(id: string): Promise<Ticket> {
+    const ticket = await this.knex("Tickets")
+      .update({
+        status: "owned"
+      })
+      .where({ id });
+
+    return this.asResource(ticket);
+  }
+
+  public async get(op: Operation): Promise<Ticket[]> {
+    return (await super.get(op)).map(this.asResource.bind(this));
+  }
+
+  public async markForSale(id: string): Promise<void> {
+    await this.knex("Tickets")
+      .update({
+        status: "forSale",
+        customerId: null
+      })
+      .where({ id });
+  }
+
   public async add(op: Operation): Promise<Ticket> {
     const ticket = op.data;
 
@@ -94,5 +125,50 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
       .limit(1);
 
     return Number(defaultPrice);
+  }
+
+  private asResource(ticketObject): Ticket {
+    const ticket = { ...ticketObject };
+
+    delete ticket.id;
+
+    const result = {
+      id: ticketObject.id,
+      type: "ticket",
+      attributes: ticket.attributes ? ticket.attributes : ticket,
+      relationships: {
+        event: {
+          data: {
+            id: (ticket.attributes || ticket).eventId as string,
+            type: "event"
+          }
+        },
+        ticketType: {
+          data: {
+            id: (ticket.attributes || ticket).ticketTypeId as string,
+            type: "ticketType"
+          }
+        },
+        customer: {
+          data: {
+            id: (ticket.attributes || ticket).customerId as string,
+            type: "customer"
+          }
+        },
+        purchase: {
+          data: {
+            id: (ticket.attributes || ticket).purchaseId as string,
+            type: "purchase"
+          }
+        }
+      }
+    };
+
+    delete result.attributes.eventId;
+    delete result.attributes.customerId;
+    delete result.attributes.ticketTypeId;
+    delete result.attributes.purchaseId;
+
+    return result as Ticket;
   }
 }
