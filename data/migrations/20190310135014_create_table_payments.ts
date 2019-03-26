@@ -7,7 +7,7 @@ export async function up(knex: Knex): Promise<any> {
       .primary("pk_payments")
       .notNullable();
     table.string("externalId").notNullable();
-    table.dateTime("datePaid").notNullable();
+    table.dateTime("datePaid").nullable();
     table.uuid("purchaseId").notNullable();
     table.string("paymentType", 25).notNullable();
     table.string("paymentMethod", 25).notNullable();
@@ -15,8 +15,8 @@ export async function up(knex: Knex): Promise<any> {
     table.integer("installments").nullable();
     table.string("cardId").nullable();
     table.decimal("amountDue", 10, 2).notNullable();
-    table.decimal("amountPaid", 10, 2).notNullable();
-    table.decimal("interestFee", 10, 2).notNullable();
+    table.decimal("amountPaid", 10, 2).nullable();
+    table.decimal("interestFee", 10, 2).nullable();
     table.decimal("gatewayFee", 10, 2).notNullable();
     table
       .string("status", 25)
