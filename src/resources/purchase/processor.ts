@@ -16,80 +16,40 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
   public resourceClass = Purchase;
 
   public async add(op: Operation) {
-    const data = { ...op.data };
+    const purchase = { ...op.data };
 
     // 1: Get all tickets to figure out quantity and total price.
-    const { ticketCount, totalPrice, tickets } = await this.getTickets(data
-      .relationships.ticket.data as ResourceRelationship[]);
+    const { totalPrice, tickets, quantitiesByType } = await this.getTickets(
+      purchase.relationships.ticket.data as ResourceRelationship[]
+    );
 
-    // 2: Create payer data from customer record.
-    const customer = data.relationships.customer.data as ResourceRelationship;
-    const payer = await this.getPayerData(customer);
+    // 2: Create preference.
+    const preference = await this.postPreference({ tickets, quantitiesByType });
 
-    // 3: Execute Mercado Pago payment.
-    const payment = await this.postPayment({
-      payer,
-      ticketCount,
-      totalPrice,
-      paymentMethod: data.attributes.paymentMethod as string,
-      cardToken: data.attributes.cardId as string
-    });
-
-    // 4: Create the Purchase itself.
-    data.id = uuid.v4();
-    data.attributes = {
+    // 3: Create the purchase.
+    purchase.id = uuid.v4();
+    purchase.attributes = {
       dateCreated: new Date().toJSON(),
-      status: payment.status === "approved" ? "paid" : "unpaid",
+      status: "unpaid",
       amountBilled: totalPrice,
-      customerId: customer.id
+      externalId: preference.id
     };
 
-    const [purchaseRecord] = await this.knex("Purchases")
-      .insert({
-        id: data.id,
-        ...data.attributes
-      })
-      .returning(["id", "dateCreated", "status", "amountBilled", "customerId"]);
+    await super.add({ ...op, data: purchase });
 
-    const purchase = {
-      id: purchaseRecord.id,
-      type: "purchase",
-      relationships: {},
-      attributes: {
-        dateCreated: purchaseRecord.dateCreated,
-        status: purchaseRecord.status,
-        amountBilled: purchaseRecord.amountBilled,
-        customerId: purchaseRecord.customerId
-      }
-    };
-
-    // 5: Store the Payment, related to the purchase.
-    const checkoutPayment = await this.savePaymentResponse(purchase, payment);
-
-    // 6: Generate QR codes for each ticket.
-    // TODO: HOW?
-
-    // 7: Update the tickets with the new purchase ID, their new owner and the status
-    // according to the payment operation result.
+    // 4: Mark the tickets as booked.
     await this.bindTicketsToPurchase(tickets, purchase);
 
-    return {
-      ...purchase,
-      relationships: {
-        payment: {
-          data: {
-            id: checkoutPayment.id,
-            type: checkoutPayment.type
-          }
-        }
-      }
-    } as Purchase;
+    return purchase;
   }
 
   private async getTickets(
     tickets: ResourceRelationship[]
-  ): Promise<{ ticketCount: number; totalPrice: number; tickets: Resource[] }> {
-    const ticketCount: number = tickets.length;
+  ): Promise<{
+    totalPrice: number;
+    tickets: Resource[];
+    quantitiesByType: { [key: string]: number };
+  }> {
     const ticketRecords = await this.knex("Tickets")
       .select()
       .where("id", "in", tickets.map(ticket => ticket.id));
@@ -98,7 +58,18 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       .map(record => Number(record.price))
       .reduce((priceSum: number, price: number) => priceSum + price, 0);
 
-    return { ticketCount, totalPrice, tickets: ticketRecords };
+    const quantitiesByType = ticketRecords
+      .map(record => record.ticketTypeId)
+      .reduce(
+        (accumulator, type) => ({ [type]: (accumulator[type] || 0) + 1 }),
+        {}
+      );
+
+    return {
+      totalPrice,
+      tickets: ticketRecords,
+      quantitiesByType
+    };
   }
 
   private async getPayerData(
@@ -111,7 +82,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     const payer: MPPayerData = {
       email: data.emailAddress as string,
       identification: {
-        type: data.identificationType as string,
+        type: (data.identificationType as string) || "DNI",
         number: data.identificationNumber as string
       },
       first_name: data.fullName.split(" ")[0] as string,
@@ -124,27 +95,49 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     return payer;
   }
 
-  private async postPayment(data: {
-    payer: MPPayerData;
-    ticketCount: number;
-    totalPrice: number;
-    paymentMethod: string;
-    cardToken?: string;
+  private async postPreference({
+    tickets,
+    quantitiesByType
+  }: {
+    tickets: any[];
+    quantitiesByType: { [key: string]: number };
   }) {
-    const payment: {
-      id: string;
-      status: string;
-    } = (await MercadoPago.payment.create({
-      payer: data.payer,
-      binary_mode: false,
-      description: `${data.ticketCount} x Entradas Córdoba WebConf 2019`,
-      metadata: {},
-      transaction_amount: Number(data.totalPrice),
-      payment_method_id: data.paymentMethod,
-      ...(data.cardToken ? { card_token_id: data.cardToken } : {})
-    })).response;
+    const TOMORROW = Date.now() + 60 * 60 * 60 * 24 * 1000;
+    const preferenceConfiguration = {
+      items: tickets.map(ticket => ({
+        id: "WEBCONF-TICKET",
+        title: "Entradas WebConf 2019",
+        quantity: quantitiesByType[ticket.ticketTypeId as string],
+        currency_id: "ARS",
+        unit_price: Number(ticket.price),
+        picture_url:
+          "https://mla-s2-p.mlstatic.com/752385-MLA29687494966_032019-N.jpg",
+        category_id: "tickets"
+      })),
+      back_urls: {
+        success: "https://checkout.webconf.tech/webhooks/purchase-success",
+        failure: "https://checkout.webconf.tech/webhooks/purchase-failure",
+        pending: "https://checkout.webconf.tech/webhooks/purchase-pending"
+      },
+      auto_return: "approved",
+      notification_url: "https://checkout.webconf.tech/webhooks/ipn",
+      external_reference: tickets.map(ticket => ticket.id).join("|"),
+      expires: true,
+      expiration_date_from: new Date()
+        .toJSON()
+        .substr(0, 23)
+        .concat("-03:00"),
+      expiration_date_to: new Date(TOMORROW)
+        .toJSON()
+        .substr(0, 23)
+        .concat("-03:00")
+    };
 
-    return payment;
+    const preference = (await MercadoPago.preferences.create(
+      preferenceConfiguration
+    )).response;
+
+    return preference;
   }
 
   private calculateGatewayFee(totalPrice: number) {
@@ -158,45 +151,6 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     );
   }
 
-  private async savePaymentResponse(purchase: Resource, payment: any) {
-    const gatewayFee = this.calculateGatewayFee(purchase.attributes
-      .amountBilled as number);
-
-    const attributes = {
-      externalId: payment.id,
-      datePaid: new Date().toJSON(),
-      purchaseId: purchase.id,
-      paymentType: payment.payment_type_id,
-      paymentMethod: payment.payment_method_id,
-      issuer: payment.issuer_id,
-      installments: payment.installments,
-      cardId: payment.card_id,
-      amountDue: purchase.attributes.amountBilled,
-      amountPaid: 0,
-      interestFee: 0,
-      gatewayFee,
-      status: payment.status
-    };
-
-    const [id] = await this.knex("Payments")
-      .insert({
-        id: uuid.v4(),
-        ...attributes
-      })
-      .returning("id");
-
-    const paymentResource = {
-      id,
-      type: "payment",
-      attributes,
-      relationships: {}
-    };
-
-    this.include([paymentResource]);
-
-    return paymentResource as Resource;
-  }
-
   private async bindTicketsToPurchase(
     tickets: Resource[],
     purchase: Resource
@@ -204,7 +158,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     await this.knex("Tickets")
       .update({
         purchaseId: purchase.id,
-        status: "owned"
+        status: "booked"
       })
       .where("id", "in", tickets.map(ticket => ticket.id));
   }

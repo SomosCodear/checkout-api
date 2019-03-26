@@ -1,22 +1,17 @@
 import { Resource } from "@joelalejandro/jsonapi-ts";
 
 export default class Purchase extends Resource {
+  static get type() {
+    return "purchase";
+  }
+
   public static attributes: {
     dateCreated?: string;
-    customerId: string;
-    paymentType: string;
-    paymentMethod: string;
-    issuer?: string;
-    installments?: number;
-    cardId?: string;
-    amountBilled?: number;
     status?: string;
+    externalId: string;
   } = {
     dateCreated: new Date().toJSON(),
-    customerId: "",
-    paymentType: "",
-    paymentMethod: "",
-    amountBilled: 0,
-    status: "unpaid"
+    status: "unpaid",
+    externalId: ""
   };
 }

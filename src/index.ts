@@ -1,29 +1,27 @@
 import { Application, jsonApiKoa } from "@joelalejandro/jsonapi-ts";
 import * as cors from "@koa/cors";
 import * as Koa from "koa";
-import ssl from "koa-ssl";
+import * as ssl from "koa-ssl";
 import { KoaLoggingMiddleware as logs } from "logepi";
 import * as MercadoPago from "mercadopago";
 
 import Errors from "./errors";
-import Cache from "./resources/cache";
 
-import CardConfigurationProcessor from "./resources/card-configuration/processor";
-import CardConfiguration from "./resources/card-configuration/resource";
 import CustomerProcessor from "./resources/customer/processor";
 import Customer from "./resources/customer/resource";
-import PaymentMethodProcessor from "./resources/payment-method/processor";
-import PaymentMethod from "./resources/payment-method/resource";
 import PurchaseProcessor from "./resources/purchase/processor";
 import Purchase from "./resources/purchase/resource";
 import TicketProcessor from "./resources/ticket/processor";
 import Ticket from "./resources/ticket/resource";
 import ipnWebhook from "./webhooks/ipn";
+import purchaseFailedWebhook from "./webhooks/purchase-failed";
+import purchasePendingWebhook from "./webhooks/purchase-pending";
+import purchaseSuccessWebhook from "./webhooks/purchase-success";
 
-// MercadoPago.configure({
-//   sandbox: Boolean(process.env.MP_SANDBOX),
-//   access_token: process.env.MP_ACCESS_TOKEN
-// });
+MercadoPago.configure({
+  client_id: process.env.MP_CLIENT_ID,
+  client_secret: process.env.MP_CLIENT_SECRET
+});
 
 const api = new Koa();
 let connection = process.env.DATABASE_URL;
@@ -39,14 +37,8 @@ const checkout = () =>
   jsonApiKoa(
     new Application({
       namespace: "api",
-      types: [
-        /* CardConfiguration, PaymentMethod,  */ Purchase,
-        Ticket,
-        Customer
-      ],
+      types: [Purchase, Ticket, Customer],
       processors: [
-        // new CardConfigurationProcessor(),
-        // new PaymentMethodProcessor(),
         new PurchaseProcessor(db),
         new TicketProcessor(db),
         new CustomerProcessor(db)
@@ -66,6 +58,9 @@ api
     })
   )
   .use(ipnWebhook())
+  .use(purchaseSuccessWebhook())
+  .use(purchasePendingWebhook())
+  .use(purchaseFailedWebhook())
   .use(checkout())
   .use(logs());
 

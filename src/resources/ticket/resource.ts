@@ -2,6 +2,10 @@ import { Resource } from "@joelalejandro/jsonapi-ts";
 import { TicketStatus } from "../../types";
 
 export default class Ticket extends Resource {
+  static get type() {
+    return "ticket";
+  }
+
   public static attributes: {
     status: TicketStatus;
     ticketTypeId: string;

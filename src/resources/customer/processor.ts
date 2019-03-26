@@ -46,6 +46,12 @@ export default class CustomerProcessor extends KnexProcessor<Customer> {
     }
 
     customer.id = uuid();
+    op.ref.id = customer.id;
+
+    console.log({
+      ...op,
+      data: customer
+    });
 
     return super.add({
       ...op,
