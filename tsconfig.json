@@ -1,12 +1,21 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": { "*": ["types/*"] },
+    "paths": {
+      "*": [
+        "types/*"
+      ]
+    },
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
     "target": "es2018",
     "moduleResolution": "node",
-    "module": "commonjs"
+    "module": "commonjs",
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
