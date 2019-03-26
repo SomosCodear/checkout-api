@@ -7,10 +7,7 @@ const noop = async () => {
 
 export default () =>
   async function ipnWebHook(ctx: Context, next: () => Promise<void>) {
-    if (
-      !ctx.request.url.includes("/ipn/success") ||
-      !ctx.request.url.includes("/ipn/pending")
-    ) {
+    if (!ctx.request.url.includes("/webhooks/ipn")) {
       return next();
     }
 
