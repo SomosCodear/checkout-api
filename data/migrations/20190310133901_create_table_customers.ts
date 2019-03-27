@@ -5,7 +5,8 @@ export async function up(knex: Knex): Promise<any> {
     table
       .uuid("id")
       .primary("pk_customers")
-      .notNullable();
+      .notNullable()
+      .defaultTo(knex.raw("uuid_generate_v4()"));
     table.string("fullName", 100).notNullable();
     table.date("dateOfBirth").nullable();
     table.string("city", 255).nullable();
