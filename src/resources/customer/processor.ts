@@ -1,5 +1,4 @@
 import { KnexProcessor, Operation } from "@joelalejandro/jsonapi-ts";
-import { v4 as uuid } from "uuid";
 import {
   ALLOWED_EMAIL_FORMAT,
   ALLOWED_IDENTIFICATION_TYPES
@@ -14,6 +13,14 @@ export default class CustomerProcessor extends KnexProcessor<Customer> {
     await this.knex("Customers")
       .where({ id })
       .delete();
+  }
+
+  public async getById(id: string): Promise<Customer> {
+    const customer = await this.knex("Customers")
+      .where({ id })
+      .first();
+
+    return Promise.resolve(this.asResource(customer));
   }
 
   public async add(op: Operation): Promise<Customer> {
@@ -51,17 +58,24 @@ export default class CustomerProcessor extends KnexProcessor<Customer> {
       throw Errors.InvalidData("emailAddress", ["a valid email address"]);
     }
 
-    customer.id = uuid();
-    op.ref.id = customer.id;
-
-    console.log({
-      ...op,
-      data: customer
-    });
-
     return super.add({
       ...op,
       data: customer
     } as Operation);
+  }
+
+  private asResource(customerObject): Customer {
+    const customer = { ...customerObject };
+
+    delete customer.id;
+
+    const result = {
+      id: customerObject.id,
+      type: "customer",
+      attributes: customer.attributes ? customer.attributes : customer,
+      relationships: {}
+    };
+
+    return result as Customer;
   }
 }

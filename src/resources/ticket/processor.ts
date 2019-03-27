@@ -9,7 +9,7 @@ import Ticket from "./resource";
 export default class TicketProcessor extends KnexProcessor<Ticket> {
   public resourceClass = Ticket;
 
-  public async getTicketById(id: string): Promise<Ticket> {
+  public async getById(id: string): Promise<Ticket> {
     const ticket = await this.knex("Tickets")
       .where({ id })
       .first();

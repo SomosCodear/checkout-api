@@ -6,7 +6,6 @@ import {
   ResourceRelationship
 } from "@joelalejandro/jsonapi-ts";
 import * as MercadoPago from "mercadopago";
-import uuid = require("uuid");
 
 import Purchase from "./resource";
 
@@ -16,7 +15,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
   public resourceClass = Purchase;
 
   public async add(op: Operation) {
-    const purchase = { ...op.data };
+    let purchase = { ...op.data };
 
     // 1: Get all tickets to figure out quantity and total price.
     const { totalPrice, tickets, quantitiesByType } = await this.getTickets(
@@ -27,7 +26,6 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     const preference = await this.postPreference({ tickets, quantitiesByType });
 
     // 3: Create the purchase.
-    purchase.id = uuid.v4();
     purchase.attributes = {
       dateCreated: new Date().toJSON(),
       status: "unpaid",
@@ -35,8 +33,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       externalId: preference.id
     };
 
-    op.ref.id = purchase.id;
-    await super.add({ ...op, data: purchase });
+    purchase = await super.add({ ...op, data: purchase });
 
     // 4: Mark the tickets as booked.
     await this.bindTicketsToPurchase(tickets, purchase);
@@ -48,6 +45,22 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     await this.knex("Purchases")
       .where({ id })
       .delete();
+  }
+
+  public async getById(id: string): Promise<Purchase> {
+    const purchase = await this.knex("Purchases")
+      .where({ id })
+      .first();
+
+    return Promise.resolve(this.asResource(purchase));
+  }
+
+  public async markAsPaid(id: string): Promise<void> {
+    await this.knex("Purchases")
+      .where({ id })
+      .update({
+        status: "paid"
+      });
   }
 
   private async getTickets(
@@ -121,13 +134,19 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
           "https://mla-s2-p.mlstatic.com/752385-MLA29687494966_032019-N.jpg",
         category_id: "tickets"
       })),
+      payment_methods: {
+        excluded_payment_types: (process.env.MP_EXCLUDED_PAYMENT_TYPES || "")
+          .split(",")
+          .map(paymentType => ({ id: paymentType }))
+      },
       back_urls: {
         success: "https://checkout.webconf.tech/webhooks/purchase-success",
         failure: "https://checkout.webconf.tech/webhooks/purchase-failure",
         pending: "https://checkout.webconf.tech/webhooks/purchase-pending"
       },
       auto_return: "approved",
-      notification_url: "https://checkout.webconf.tech/webhooks/ipn",
+      // TODO: Enable this feature when the IPN webhook is working.
+      // notification_url: "https://checkout.webconf.tech/webhooks/ipn",
       external_reference: tickets.map(ticket => ticket.id).join("|"),
       expires: true,
       expiration_date_from: new Date()
@@ -157,5 +176,20 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
         status: "booked"
       })
       .where("id", "in", tickets.map(ticket => ticket.id));
+  }
+
+  private asResource(purchaseObject): Purchase {
+    const purchase = { ...purchaseObject };
+
+    delete purchase.id;
+
+    const result = {
+      id: purchaseObject.id,
+      type: "purchase",
+      attributes: purchase.attributes ? purchase.attributes : purchase,
+      relationships: {}
+    };
+
+    return result as Purchase;
   }
 }
