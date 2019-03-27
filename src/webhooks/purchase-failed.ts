@@ -1,6 +1,6 @@
 import { Application, Operation, Resource } from "@joelalejandro/jsonapi-ts";
 import { Context } from "koa";
-import * as bodyParser from "koa-bodyparser";
+import bodyParser from "koa-bodyparser";
 import CustomerProcessor from "../resources/customer/processor";
 import PurchaseProcessor from "../resources/purchase/processor";
 import TicketProcessor from "../resources/ticket/processor";
@@ -39,7 +39,7 @@ export default (application: Application) => {
 
     await Promise.all(
       ticketIds.map(async ticketId => {
-        const ticket = await ticketProcessor.getTicketById(ticketId);
+        const ticket = await ticketProcessor.getById(ticketId);
 
         await purchaseProcessor.removeById(
           ticket.relationships.purchase.data.id

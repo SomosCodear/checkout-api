@@ -1,9 +1,10 @@
 import { Application, Operation, Resource } from "@joelalejandro/jsonapi-ts";
 import { Context } from "koa";
-import * as bodyParser from "koa-bodyparser";
-import * as MercadoPago from "mercadopago";
+import bodyParser from "koa-bodyparser";
+import MercadoPago from "mercadopago";
 import uuid = require("uuid");
 import PaymentProcessor from "../resources/payment/processor";
+import PurchaseProcessor from "../resources/purchase/processor";
 import TicketProcessor from "../resources/ticket/processor";
 
 export default (application: Application) => {
@@ -18,6 +19,10 @@ export default (application: Application) => {
   const paymentProcessor = application.processorFor({
     ref: { type: "Payment", id: "", lid: "", relationship: "" }
   } as Operation) as PaymentProcessor;
+
+  const purchaseProcessor = application.processorFor({
+    ref: { type: "Purchase", id: "", lid: "", relationship: "" }
+  } as Operation) as PurchaseProcessor;
 
   return async function purchaseSuccessWebhook(
     ctx: Context,
@@ -41,19 +46,22 @@ export default (application: Application) => {
       .response;
     const paymentLocalId = uuid.v4();
     const ticketIds = external_reference.split("|");
-    const firstTicket = await ticketProcessor.getTicketById(ticketIds[0]);
-
-    console.log(firstTicket);
+    const firstTicket = await ticketProcessor.getById(ticketIds[0]);
+    const purchaseId = firstTicket.relationships.purchase.data.id as string;
 
     await paymentProcessor.addPayment({
       paymentLocalId,
       lastPayment,
       payment,
       order,
-      purchaseId: firstTicket.attributes.purchaseId
+      purchaseId
     });
 
-    await Promise.all(ticketIds.map(id => ticketProcessor.markAsOwned(id)));
+    await purchaseProcessor.markAsPaid(purchaseId);
+
+    await Promise.all(
+      ticketIds.map((id: string) => ticketProcessor.markAsOwned(id))
+    );
 
     // TODO: Send e-mail here.
     // lambda.mail()

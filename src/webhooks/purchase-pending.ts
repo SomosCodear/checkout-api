@@ -1,7 +1,7 @@
 import { Application, Operation, Resource } from "@joelalejandro/jsonapi-ts";
 import { Context } from "koa";
-import * as bodyParser from "koa-bodyparser";
-import * as MercadoPago from "mercadopago";
+import bodyParser from "koa-bodyparser";
+import MercadoPago from "mercadopago";
 import uuid = require("uuid");
 import PaymentProcessor from "../resources/payment/processor";
 import TicketProcessor from "../resources/ticket/processor";
@@ -41,7 +41,7 @@ export default (application: Application) => {
       .response;
     const paymentLocalId = uuid.v4();
     const [firstTicketId] = external_reference.split("|");
-    const ticket = await ticketProcessor.getTicketById(firstTicketId);
+    const ticket = await ticketProcessor.getById(firstTicketId);
 
     await paymentProcessor.addPayment({
       paymentLocalId,
