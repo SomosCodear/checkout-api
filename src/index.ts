@@ -1,24 +1,27 @@
 import { Application, jsonApiKoa } from "@joelalejandro/jsonapi-ts";
-import * as cors from "@koa/cors";
-import * as Koa from "koa";
-import * as ssl from "koa-ssl";
+import cors from "@koa/cors";
+import Koa from "koa";
+import ssl from "koa-ssl";
 import { KoaLoggingMiddleware as logs } from "logepi";
-import * as MercadoPago from "mercadopago";
+import MercadoPago from "mercadopago";
+import { resolve as resolvePath } from "path";
 
 import Errors from "./errors";
 
+import qr from "./middleware/qr";
 import CustomerProcessor from "./resources/customer/processor";
 import Customer from "./resources/customer/resource";
+import PaymentProcessor from "./resources/payment/processor";
+import Payment from "./resources/payment/resource";
 import PurchaseProcessor from "./resources/purchase/processor";
 import Purchase from "./resources/purchase/resource";
 import TicketProcessor from "./resources/ticket/processor";
 import Ticket from "./resources/ticket/resource";
-import ipnWebhook from "./webhooks/ipn";
+// import ipnWebhook from "./webhooks/ipn";
+import BitmapFonts from "./utils/fonts";
 import purchaseFailedWebhook from "./webhooks/purchase-failed";
 import purchasePendingWebhook from "./webhooks/purchase-pending";
 import purchaseSuccessWebhook from "./webhooks/purchase-success";
-import Payment from "./resources/payment/resource";
-import PaymentProcessor from "./resources/payment/processor";
 
 MercadoPago.configure({
   client_id: process.env.MP_CLIENT_ID,
@@ -59,11 +62,13 @@ api
       }
     })
   )
-  .use(ipnWebhook())
+  // TODO: Enable this endpoint when ready.
+  // .use(ipnWebhook())
+  .use(qr(application))
   .use(purchaseSuccessWebhook(application))
   .use(purchasePendingWebhook(application))
   .use(purchaseFailedWebhook(application))
   .use(checkout())
   .use(logs());
 
-api.listen(process.env.PORT || 3000);
+api.listen(process.env.PORT || 3000, async () => BitmapFonts.load());
