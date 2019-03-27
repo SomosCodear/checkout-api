@@ -197,7 +197,7 @@ export default (application: Application) => {
     );
 
     await ticketImage.composite(
-      await logo.mask(await (await logo.grayscale()).invert(), 0, 0),
+      await logo.mask(await logo.grayscale().invert(), 0, 0).brightness(1),
       ticketImage.getWidth() / 2 - logo.getWidth() / 2,
       716 + qrImage.getHeight() / 4
     );
