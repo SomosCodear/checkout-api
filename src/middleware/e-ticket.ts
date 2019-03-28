@@ -188,6 +188,31 @@ const renderTicket = async (
   return ticketImage;
 };
 
+const createIcal = (ticket: Ticket) =>
+  ical({
+    prodId: {
+      company: "WebConf",
+      product: "Córdoba WebConf 2019",
+      language: "ES"
+    },
+    domain: "https://webconf.tech",
+    name: "Córdoba WebConf 2019",
+    description:
+      "La primer conferencia de front-end y tecnologías web del interior del país.",
+    events: [
+      {
+        start: new Date("2019-05-11T09:00:00-03:00"),
+        end: new Date("2019-05-11T18:00:00-03:00"),
+        summary:
+          "La primer conferencia de front-end y tecnologías web del interior del país.",
+        url: `https://checkout.webconf.tech/e-ticket?id=${
+          ticket.id
+        }&format=ticket`
+      }
+    ],
+    method: "ADD"
+  });
+
 export default (application: Application) => {
   const ticketProcessor = application.processorFor({
     ref: { type: "Ticket", id: "", lid: "", relationship: "" }
@@ -259,29 +284,7 @@ export default (application: Application) => {
     }
 
     if (ticketFormat === "ical") {
-      const calendarEvent = ical({
-        prodId: {
-          company: "WebConf",
-          product: "Córdoba WebConf 2019",
-          language: "ES"
-        },
-        domain: "https://webconf.tech",
-        name: "Córdoba WebConf 2019",
-        description:
-          "La primer conferencia de front-end y tecnologías web del interior del país.",
-        events: [
-          {
-            start: new Date("2019-05-11T09:00:00-03:00"),
-            end: new Date("2019-05-11T18:00:00-03:00"),
-            summary:
-              "La primer conferencia de front-end y tecnologías web del interior del país.",
-            url: `https://checkout.webconf.tech/e-ticket?id=${
-              ticket.id
-            }&format=ticket`
-          }
-        ],
-        method: "ADD"
-      });
+      const calendarEvent = createIcal(ticket);
       calendarEvent.saveSync(file);
       calendarEvent.serve(ctx.res);
       return;
