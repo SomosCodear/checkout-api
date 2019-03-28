@@ -188,6 +188,9 @@ const renderTicket = async (
   return ticketImage;
 };
 
+const ticketUrl = (id: string) =>
+  `https://checkout.webconf.tech/e-ticket?id=${id}&format=ticket`;
+
 const createIcal = (ticket: Ticket) =>
   ical({
     prodId: {
@@ -203,9 +206,7 @@ const createIcal = (ticket: Ticket) =>
         start: new Date("2019-05-11T09:00:00-03:00"),
         end: new Date("2019-05-11T18:00:00-03:00"),
         summary: "Córdoba WebConf 2019",
-        url: `https://checkout.webconf.tech/e-ticket?id=${
-          ticket.id
-        }&format=ticket`,
+        url: ticketUrl(ticket.id),
         organizer: "WebConf <hola@webconf.tech>",
         status: "confirmed",
         geo: {
