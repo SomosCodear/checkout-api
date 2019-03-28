@@ -1,1 +1,1 @@
-web: npm run heroku:cache:wipe && npm run run:api
+web: npm run run:api

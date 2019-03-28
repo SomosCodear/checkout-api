@@ -267,18 +267,18 @@ export default (application: Application) => {
       return;
     }
 
-    const file = resolvePath(
-      __dirname,
-      `../../tickets/${ticketFormat}-${ticketID}.${extension}`
-    );
+    // const file = resolvePath(
+    //   __dirname,
+    //   `../../tickets/${ticketFormat}-${ticketID}.${extension}`
+    // );
     let image: Jimp;
 
     // Check if we've already generated this ticket. If we've done so,
     // use the file cache for quicker response time.
-    if (existsSync(file)) {
-      ctx.body = readFileSync(file);
-      return;
-    }
+    // if (existsSync(file)) {
+    //   ctx.body = readFileSync(file);
+    //   return;
+    // }
 
     const { ticket, customer, purchase } = await getTicketData(ticketID);
 
@@ -289,10 +289,14 @@ export default (application: Application) => {
 
     if (ticketFormat === "ical") {
       const calendarEvent = createIcal(ticket);
-      calendarEvent.saveSync(file);
 
       ctx.set("Content-Disposition", `inline;filename=ical-${ticket.id}.ics`);
-      ctx.body = readFileSync(file);
+      const result = calendarEvent.toString();
+      ctx.body = result;
+
+      if (ctx.request.query.internalCall) {
+        return result;
+      }
 
       return;
     }
@@ -309,8 +313,12 @@ export default (application: Application) => {
     }
 
     const response = await image.getBufferAsync(Jimp.MIME_PNG);
-    writeFileSync(file, response);
+    // writeFileSync(file, response);
 
     ctx.body = response;
+
+    if (ctx.request.query.internalCall) {
+      return response;
+    }
   };
 };

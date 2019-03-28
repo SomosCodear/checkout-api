@@ -103,10 +103,13 @@ export default (application: Application) => {
           fullName
         } = ticket.relationships.customer.data.attributes;
 
-        await eTicket(application)(
-          { ...ctx, query: { id: ticket.id, format: "ticket" } },
+        const ticketBuffer = (await eTicket(application)(
+          {
+            ...ctx,
+            query: { id: ticket.id, format: "ticket", internalCall: true }
+          },
           noop
-        );
+        )) as Buffer;
 
         emailPayload.append(
           "subject",
@@ -133,12 +136,7 @@ export default (application: Application) => {
             checkout_url: ctx.request.URL.host
           })
         );
-        emailPayload.append(
-          "ticketFile",
-          readFileSync(
-            resolvePath(__dirname, `../../tickets/ticket-${ticket.id}.png`)
-          )
-        );
+        emailPayload.append("ticketFile", ticketBuffer);
 
         return axios.post(
           process.env.WEBCONF_MAIL_SEND_LAMBDA_URL,
