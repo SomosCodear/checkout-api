@@ -111,6 +111,14 @@ export default (application: Application) => {
           noop
         )) as Buffer;
 
+        const iCalBuffer = (await eTicket(application)(
+          {
+            ...ctx,
+            query: { id: ticket.id, format: "ical", internalCall: true }
+          },
+          noop
+        )) as Buffer;
+
         emailPayload.append(
           "subject",
           process.env.WEBCONF_CHECKOUT_SUCCESS_SUBJECT
@@ -136,7 +144,16 @@ export default (application: Application) => {
             checkout_url: ctx.request.URL.host
           })
         );
-        emailPayload.append("ticketFile", ticketBuffer);
+        emailPayload.append("ticketFile", ticketBuffer, {
+          filename: `ticket-${ticket.id}.png`,
+          contentType: "image/png",
+          knownLength: ticketBuffer.length
+        });
+        emailPayload.append("icalFile", iCalBuffer, {
+          filename: `ical-${ticket.id}.ics`,
+          contentType: "text/calendar",
+          knownLength: iCalBuffer.length
+        });
 
         return axios.post(
           process.env.WEBCONF_MAIL_SEND_LAMBDA_URL,
