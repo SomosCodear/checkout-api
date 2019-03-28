@@ -14,6 +14,10 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
       .where({ id })
       .first();
 
+    if (!ticket) {
+      return {} as Ticket;
+    }
+
     return Promise.resolve(this.asResource(ticket));
   }
 

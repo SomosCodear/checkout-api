@@ -138,6 +138,11 @@ export default (application: Application) => {
     ticketID: string
   ): Promise<{ ticket: Ticket; customer: Customer; purchase: Purchase }> => {
     const ticket = await ticketProcessor.getById(ticketID);
+
+    if (!ticket.id) {
+      return {} as any;
+    }
+
     const customer = await customerProcessor.getById(
       ticket.relationships.customer.data.id
     );
@@ -155,23 +160,43 @@ export default (application: Application) => {
 
     ctx.set("Content-Type", Jimp.MIME_PNG);
 
-    // Check if we've already generated this ticket. If we've done so,
-    // use the file cache for quicker response time.
     const ticketID = ctx.request.query.id;
-    const ticketFile = resolvePath(__dirname, `../../tickets/${ticketID}.png`);
+    const ticketFormat = ctx.request.query.format || "ticket"; // could also be "qr"
 
-    if (existsSync(ticketFile)) {
-      ctx.body = readFileSync(ticketFile);
+    if (!["ticket", "qr"].includes(ticketFormat)) {
+      ctx.status = 400;
       return;
     }
 
-    // Create a new ticket image and save it.
+    const file = resolvePath(
+      __dirname,
+      `../../tickets/${ticketFormat}-${ticketID}.png`
+    );
+    let image: Jimp;
+
+    // Check if we've already generated this ticket. If we've done so,
+    // use the file cache for quicker response time.
+    if (existsSync(file)) {
+      ctx.body = readFileSync(file);
+      return;
+    }
+
     const { ticket, customer, purchase } = await getTicketData(ticketID);
-    const ticketImage = await renderTicket(ticket, customer, purchase);
-    const ticketBinary = await ticketImage.getBufferAsync(Jimp.MIME_PNG);
 
-    writeFileSync(ticketFile, ticketBinary);
+    if (!ticket) {
+      ctx.status = 404;
+      return;
+    }
 
-    ctx.body = ticketBinary;
+    if (ticketFormat === "qr") {
+      image = await createQR(ticket, customer, purchase);
+    } else if (ticketFormat === "ticket") {
+      image = await renderTicket(ticket, customer, purchase);
+    }
+
+    const response = await image.getBufferAsync(Jimp.MIME_PNG);
+    writeFileSync(file, response);
+
+    ctx.body = response;
   };
 };
