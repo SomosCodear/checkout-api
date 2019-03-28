@@ -1,1 +1,1 @@
-web: mkdir -p ./tickets && npm run run:api
+web: npm run cache:wipe && npm run run:api

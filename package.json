@@ -6,6 +6,7 @@
   "scripts": {
     "run:api": "tsnd src/",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "cache:wipe": "rm -rf ./tickets && mkdir -p ./tickets",
     "migrate:make": "knex migrate:make --migrations-directory ./data/migrations -x ts",
     "migrate:latest": "knex migrate:latest --migrations-directory ./data/migrations --knexfile ./knexfile.ts",
     "migrate:rollback": "knex migrate:rollback --migrations-directory ./data/migrations --knexfile ./knexfile.ts",
