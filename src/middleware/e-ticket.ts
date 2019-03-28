@@ -205,10 +205,16 @@ const createIcal = (ticket: Ticket) =>
         summary: "Córdoba WebConf 2019",
         url: `https://checkout.webconf.tech/e-ticket?id=${
           ticket.id
-        }&format=ticket`
+        }&format=ticket`,
+        organizer: "WebConf <hola@webconf.tech>",
+        status: "confirmed",
+        geo: {
+          lat: -31.419415,
+          lon: -64.1890507
+        }
       }
     ],
-    method: "ADD"
+    method: "PUBLISH"
   });
 
 export default (application: Application) => {
