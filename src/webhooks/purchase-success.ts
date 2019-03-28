@@ -166,13 +166,23 @@ export default (application: Application) => {
           knownLength: iCalBuffer.length
         });
 
-        return axios({
-          url: process.env.WEBCONF_MAIL_SEND_LAMBDA_URL,
-          method: "POST",
-          data: emailPayload,
-          headers: {
-            "Content-Type": "multipart/form-data"
-          }
+        return new Promise((resolve, reject) => {
+          emailPayload.submit(
+            {
+              host: process.env.WEBCONF_MAIL_SEND_LAMBDA_HOST,
+              path: "/lambdas/mail_send",
+              protocol: "https:"
+            },
+            (err, res) => {
+              if (err) {
+                reject(err);
+              } else if (res.statusCode >= 400) {
+                reject(`${res.statusCode} ${res.statusMessage}`);
+              } else {
+                resolve();
+              }
+            }
+          );
         });
       })
     );

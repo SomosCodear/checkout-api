@@ -26,7 +26,6 @@
     "@joelalejandro/jsonapi-ts": "joelalejandro/jsonapi-ts",
     "@koa/cors": "^2.2.3",
     "@types/node": "^11.11.6",
-    "axios": "^0.18.0",
     "form-data": "^2.3.3",
     "ical-generator": "^1.6.0",
     "jimp": "^0.6.0",
