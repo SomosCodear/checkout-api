@@ -1,5 +1,4 @@
 import { Application, Operation, Resource } from "@joelalejandro/jsonapi-ts";
-import axios from "axios";
 import FormData from "form-data";
 import { readFileSync } from "fs";
 import { Context } from "koa";
@@ -14,7 +13,6 @@ import PaymentProcessor from "../resources/payment/processor";
 import PurchaseProcessor from "../resources/purchase/processor";
 import TicketProcessor from "../resources/ticket/processor";
 import Ticket from "../resources/ticket/resource";
-import { request } from "https";
 
 export default (application: Application) => {
   const noop = async () => {
