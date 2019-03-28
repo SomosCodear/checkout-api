@@ -284,7 +284,10 @@ export default (application: Application) => {
     if (ticketFormat === "ical") {
       const calendarEvent = createIcal(ticket);
       calendarEvent.saveSync(file);
+
+      ctx.set("Content-Disposition", `inline;filename=ical-${ticket.id}.ics`);
       ctx.body = readFileSync(file);
+
       return;
     }
 
