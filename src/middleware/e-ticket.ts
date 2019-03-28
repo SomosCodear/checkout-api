@@ -16,9 +16,11 @@ import centerLine from "../utils/graphics/center-line";
 import centerPosition from "../utils/graphics/center-position";
 import BitmapFonts from "../utils/graphics/fonts";
 import {
+  textLine,
+  textLines,
   textLinesWithShadow,
   textLineWithShadow
-} from "../utils/graphics/text-with-shadow";
+} from "../utils/graphics/text";
 import wordWrap from "../utils/graphics/word-wrap";
 
 const ticketAsQRString = (
@@ -38,18 +40,82 @@ const ticketAsQRString = (
 const createQR = async (
   ticket: Ticket,
   customer: Customer,
-  purchase: Purchase
+  purchase: Purchase,
+  {
+    standalone = false,
+    addOwnerData = false
+  }: { standalone?: boolean; addOwnerData?: boolean } = {}
 ): Promise<Jimp> => {
   const qrString = ticketAsQRString(ticket, customer, purchase);
 
-  const qrImage = qr.imageSync(qrString, {
+  const qrImage = await Jimp.read(qr.imageSync(qrString, {
     ec_level: "H",
     type: "png",
     size: 6,
-    margin: 0
-  });
+    margin: standalone ? 1 : 0
+  }) as Buffer);
 
-  return Jimp.read(qrImage as Buffer);
+  if (standalone) {
+    const logo = await Jimp.read(
+      resolvePath(__dirname, "../assets/logo-bw@3x.png")
+    );
+    await qrImage.composite(
+      logo,
+      centerPosition(qrImage.getWidth(), logo.getWidth()),
+      centerPosition(qrImage.getHeight(), logo.getHeight())
+    );
+
+    if (addOwnerData) {
+      const [qrWidth, qrHeight] = [qrImage.getWidth(), qrImage.getHeight()];
+      const title = await wordWrap({
+        text: customer.attributes.fullName.toString().toUpperCase(),
+        canvasWidth: qrWidth,
+        lineHeight: 40,
+        xBoundary: qrWidth,
+        yStart: qrHeight + 10,
+        font: BitmapFonts.SubtitleShadow
+      });
+
+      title.push(
+        await centerLine({
+          canvasWidth: qrWidth,
+          font: BitmapFonts.SubtitleShadow,
+          text: `${customer.attributes.identificationType} ${
+            customer.attributes.identificationNumber
+          }`,
+          yStart: title[title.length - 1].y + 40
+        }),
+        await centerLine({
+          canvasWidth: qrWidth,
+          font: BitmapFonts.SubtitleShadow,
+          text: "OBISPO TREJO 323",
+          yStart: title[title.length - 1].y + 80
+        }),
+        await centerLine({
+          canvasWidth: qrWidth,
+          font: BitmapFonts.SubtitleShadow,
+          text: "11-05-2019",
+          yStart: title[title.length - 1].y + 120
+        })
+      );
+
+      const ownerImage = await Jimp.read(
+        qrWidth,
+        qrHeight + 10 + title.length * 40,
+        "#ffffff"
+      );
+
+      await textLines({
+        image: ownerImage,
+        lines: title,
+        textFont: BitmapFonts.SubtitleShadow
+      });
+
+      return ownerImage.composite(qrImage, 0, 0);
+    }
+  }
+
+  return qrImage;
 };
 
 const getTexts = async (customer: Customer, ticketImage: Jimp) => {
@@ -163,7 +229,7 @@ export default (application: Application) => {
     const ticketID = ctx.request.query.id;
     const ticketFormat = ctx.request.query.format || "ticket"; // could also be "qr"
 
-    if (!["ticket", "qr"].includes(ticketFormat)) {
+    if (!["ticket", "qr", "qr,owner"].includes(ticketFormat)) {
       ctx.status = 400;
       return;
     }
@@ -189,7 +255,12 @@ export default (application: Application) => {
     }
 
     if (ticketFormat === "qr") {
-      image = await createQR(ticket, customer, purchase);
+      image = await createQR(ticket, customer, purchase, { standalone: true });
+    } else if (ticketFormat === "qr,owner") {
+      image = await createQR(ticket, customer, purchase, {
+        standalone: true,
+        addOwnerData: true
+      });
     } else if (ticketFormat === "ticket") {
       image = await renderTicket(ticket, customer, purchase);
     }
