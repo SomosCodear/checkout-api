@@ -54,6 +54,6 @@ export default (application: Application) => {
     // TODO: Send e-mail here.
     // lambda.mail()
 
-    ctx.redirect(`${process.env.WEBCONF_CONGRATS_PENDING}/${paymentLocalId}`);
+    ctx.redirect(`${process.env.WEBCONF_CONGRATS_PENDING}`);
   };
 };
