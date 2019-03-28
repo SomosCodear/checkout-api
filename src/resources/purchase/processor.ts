@@ -129,7 +129,7 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
         title: "Entradas WebConf 2019",
         quantity: quantitiesByType[ticket.ticketTypeId as string],
         currency_id: "ARS",
-        unit_price: Number(ticket.price),
+        unit_price: process.env.USE_FAKE_PAYMENTS ? 2 : Number(ticket.price),
         picture_url:
           "https://mla-s2-p.mlstatic.com/752385-MLA29687494966_032019-N.jpg",
         category_id: "tickets"
