@@ -166,15 +166,14 @@ export default (application: Application) => {
           knownLength: iCalBuffer.length
         });
 
-        return axios.post(
-          process.env.WEBCONF_MAIL_SEND_LAMBDA_URL,
-          emailPayload,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data"
-            }
+        return axios({
+          url: process.env.WEBCONF_MAIL_SEND_LAMBDA_URL,
+          method: "POST",
+          data: emailPayload,
+          headers: {
+            "Content-Type": "multipart/form-data"
           }
-        );
+        });
       })
     );
 
