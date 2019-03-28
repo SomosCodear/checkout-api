@@ -14,6 +14,7 @@ import PaymentProcessor from "../resources/payment/processor";
 import PurchaseProcessor from "../resources/purchase/processor";
 import TicketProcessor from "../resources/ticket/processor";
 import Ticket from "../resources/ticket/resource";
+import { request } from "https";
 
 export default (application: Application) => {
   const noop = async () => {
@@ -106,7 +107,10 @@ export default (application: Application) => {
         const ticketBuffer = (await eTicket(application)(
           {
             ...ctx,
-            query: { id: ticket.id, format: "ticket", internalCall: true }
+            request: {
+              ...ctx.request,
+              query: { id: ticket.id, format: "ticket", internalCall: true }
+            }
           },
           noop
         )) as Buffer;
@@ -114,7 +118,14 @@ export default (application: Application) => {
         const iCalBuffer = (await eTicket(application)(
           {
             ...ctx,
-            query: { id: ticket.id, format: "ical", internalCall: true }
+            request: {
+              ...ctx.request,
+              query: {
+                id: ticket.id,
+                format: "ticket",
+                internalCall: true
+              }
+            }
           },
           noop
         )) as Buffer;
