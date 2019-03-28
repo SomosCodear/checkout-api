@@ -1,5 +1,6 @@
 import { Application, Operation } from "@joelalejandro/jsonapi-ts";
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import ical from "ical-generator";
 import Jimp from "jimp";
 import { Context } from "koa";
 import { resolve as resolvePath } from "path";
@@ -224,19 +225,22 @@ export default (application: Application) => {
       return next();
     }
 
-    ctx.set("Content-Type", Jimp.MIME_PNG);
-
     const ticketID = ctx.request.query.id;
     const ticketFormat = ctx.request.query.format || "ticket"; // could also be "qr"
+    const contentType =
+      ticketFormat === "ical" ? "text/calendar" : Jimp.MIME_PNG;
+    const extension = ticketFormat === "ical" ? "ics" : "png";
 
-    if (!["ticket", "qr", "qr,owner"].includes(ticketFormat)) {
+    ctx.set("Content-Type", contentType);
+
+    if (!["ticket", "qr", "qr,owner", "ical"].includes(ticketFormat)) {
       ctx.status = 400;
       return;
     }
 
     const file = resolvePath(
       __dirname,
-      `../../tickets/${ticketFormat}-${ticketID}.png`
+      `../../tickets/${ticketFormat}-${ticketID}.${extension}`
     );
     let image: Jimp;
 
@@ -251,6 +255,35 @@ export default (application: Application) => {
 
     if (!ticket) {
       ctx.status = 404;
+      return;
+    }
+
+    if (ticketFormat === "ical") {
+      const calendarEvent = ical({
+        prodId: {
+          company: "WebConf",
+          product: "Córdoba WebConf 2019",
+          language: "ES"
+        },
+        domain: "https://webconf.tech",
+        name: "Córdoba WebConf 2019",
+        description:
+          "La primer conferencia de front-end y tecnologías web del interior del país.",
+        events: [
+          {
+            start: new Date("2019-05-11T09:00:00-03:00"),
+            end: new Date("2019-05-11T18:00:00-03:00"),
+            summary:
+              "La primer conferencia de front-end y tecnologías web del interior del país.",
+            url: `https://checkout.webconf.tech/e-ticket?id=${
+              ticket.id
+            }&format=ticket`
+          }
+        ],
+        method: "ADD"
+      });
+      calendarEvent.saveSync(file);
+      calendarEvent.serve(ctx.res);
       return;
     }
 
