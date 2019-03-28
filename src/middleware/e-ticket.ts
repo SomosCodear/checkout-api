@@ -263,7 +263,9 @@ export default (application: Application) => {
       ticketFormat === "ical" ? "text/calendar" : Jimp.MIME_PNG;
     const extension = ticketFormat === "ical" ? "ics" : "png";
 
-    ctx.set("Content-Type", contentType);
+    if (!ctx.request.query.internalCall) {
+      ctx.set("Content-Type", contentType);
+    }
 
     if (!["ticket", "qr", "qr,owner", "ical"].includes(ticketFormat)) {
       ctx.status = 400;
@@ -293,7 +295,10 @@ export default (application: Application) => {
     if (ticketFormat === "ical") {
       const calendarEvent = createIcal(ticket);
 
-      ctx.set("Content-Disposition", `inline;filename=ical-${ticket.id}.ics`);
+      if (!ctx.request.query.internalCall) {
+        ctx.set("Content-Disposition", `inline;filename=ical-${ticket.id}.ics`);
+      }
+
       const result = calendarEvent.toString();
       ctx.body = result;
 
