@@ -27,6 +27,22 @@ export async function textLinesWithShadow({
   );
 }
 
+export async function textLines({
+  image,
+  lines,
+  textFont
+}: {
+  image: Jimp;
+  lines: Array<{ text: string; x: number; y: number }>;
+  textFont: any;
+}) {
+  await Promise.all(
+    lines.map(async (line: { text: string; x: number; y: number }) =>
+      image.print(textFont, line.x, line.y, line.text)
+    )
+  );
+}
+
 export async function textLineWithShadow({
   image,
   line,
@@ -45,6 +61,22 @@ export async function textLineWithShadow({
     textFont,
     shadowFont,
     shadowDistance,
+    lines: [line]
+  });
+}
+
+export async function textLine({
+  image,
+  line,
+  textFont
+}: {
+  image: Jimp;
+  line: { text: string; x: number; y: number };
+  textFont: any;
+}) {
+  await textLines({
+    image,
+    textFont,
     lines: [line]
   });
 }
