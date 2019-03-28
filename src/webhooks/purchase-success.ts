@@ -135,7 +135,9 @@ export default (application: Application) => {
         );
         emailPayload.append(
           "ticketFile",
-          readFileSync(resolvePath(__dirname, `../../ticket-${ticket.id}.png`))
+          readFileSync(
+            resolvePath(__dirname, `../../tickets/ticket-${ticket.id}.png`)
+          )
         );
 
         return axios.post(
