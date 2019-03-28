@@ -9,19 +9,19 @@ const BitmapFonts = {
 
   async load() {
     BitmapFonts.Title = await Jimp.loadFont(
-      resolvePath(__dirname, "../assets/title.fnt")
+      resolvePath(__dirname, "../../assets/title.fnt")
     );
 
     BitmapFonts.TitleShadow = await Jimp.loadFont(
-      resolvePath(__dirname, "../assets/title-black.fnt")
+      resolvePath(__dirname, "../../assets/title-black.fnt")
     );
 
     BitmapFonts.Subtitle = await Jimp.loadFont(
-      resolvePath(__dirname, "../assets/subtitle.fnt")
+      resolvePath(__dirname, "../../assets/subtitle.fnt")
     );
 
     BitmapFonts.SubtitleShadow = await Jimp.loadFont(
-      resolvePath(__dirname, "../assets/subtitle-black.fnt")
+      resolvePath(__dirname, "../../assets/subtitle-black.fnt")
     );
   }
 };

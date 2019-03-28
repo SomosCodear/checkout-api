@@ -4,11 +4,10 @@ import Koa from "koa";
 import ssl from "koa-ssl";
 import { KoaLoggingMiddleware as logs } from "logepi";
 import MercadoPago from "mercadopago";
-import { resolve as resolvePath } from "path";
 
 import Errors from "./errors";
 
-import qr from "./middleware/qr";
+import eTicket from "./middleware/e-ticket";
 import CustomerProcessor from "./resources/customer/processor";
 import Customer from "./resources/customer/resource";
 import PaymentProcessor from "./resources/payment/processor";
@@ -18,7 +17,7 @@ import Purchase from "./resources/purchase/resource";
 import TicketProcessor from "./resources/ticket/processor";
 import Ticket from "./resources/ticket/resource";
 // import ipnWebhook from "./webhooks/ipn";
-import BitmapFonts from "./utils/fonts";
+import BitmapFonts from "./utils/graphics/fonts";
 import purchaseFailedWebhook from "./webhooks/purchase-failed";
 import purchasePendingWebhook from "./webhooks/purchase-pending";
 import purchaseSuccessWebhook from "./webhooks/purchase-success";
@@ -64,7 +63,7 @@ api
   )
   // TODO: Enable this endpoint when ready.
   // .use(ipnWebhook())
-  .use(qr(application))
+  .use(eTicket(application))
   .use(purchaseSuccessWebhook(application))
   .use(purchasePendingWebhook(application))
   .use(purchaseFailedWebhook(application))
