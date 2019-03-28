@@ -250,7 +250,10 @@ export default (application: Application) => {
   };
 
   return async function getETicket(ctx: Context, next: () => Promise<void>) {
-    if (!ctx.request.url.includes("/e-ticket")) {
+    if (
+      !ctx.request.query.internalCall &&
+      !ctx.request.url.includes("/e-ticket")
+    ) {
       return next();
     }
 
