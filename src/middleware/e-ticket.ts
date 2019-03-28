@@ -197,14 +197,12 @@ const createIcal = (ticket: Ticket) =>
     },
     domain: "https://webconf.tech",
     name: "Córdoba WebConf 2019",
-    description:
-      "La primer conferencia de front-end y tecnologías web del interior del país.",
+    description: "Córdoba WebConf 2019",
     events: [
       {
         start: new Date("2019-05-11T09:00:00-03:00"),
         end: new Date("2019-05-11T18:00:00-03:00"),
-        summary:
-          "La primer conferencia de front-end y tecnologías web del interior del país.",
+        summary: "Córdoba WebConf 2019",
         url: `https://checkout.webconf.tech/e-ticket?id=${
           ticket.id
         }&format=ticket`
@@ -286,7 +284,7 @@ export default (application: Application) => {
     if (ticketFormat === "ical") {
       const calendarEvent = createIcal(ticket);
       calendarEvent.saveSync(file);
-      calendarEvent.serve(ctx.res);
+      ctx.body = readFileSync(file);
       return;
     }
 
