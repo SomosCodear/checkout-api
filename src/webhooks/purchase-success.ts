@@ -150,7 +150,7 @@ export default (application: Application) => {
             ticket_owner_name: (fullName as string).toUpperCase(),
             ticket_owner_identification_type: identificationType,
             ticket_owner_identification_number: identificationNumber,
-            checkout_url: ctx.request.URL.host
+            checkout_url: "https://checkout.webconf.tech"
           })
         );
         emailPayload.append("ticketFile", ticketBuffer, {
