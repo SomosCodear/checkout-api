@@ -123,6 +123,12 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
     quantitiesByType: { [key: string]: number };
   }) {
     const TOMORROW = Date.now() + 60 * 60 * 60 * 24 * 1000;
+    const {
+      WEBCONF_CHECKOUT_URL,
+      MP_BACK_URL_SUCCESS,
+      MP_BACK_URL_PENDING,
+      MP_BACK_URL_FAILURE
+    } = process.env;
     const preferenceConfiguration = {
       items: tickets.map(ticket => ({
         id: "WEBCONF-TICKET",
@@ -140,9 +146,9 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
           .map(paymentType => ({ id: paymentType }))
       },
       back_urls: {
-        success: "https://checkout.webconf.tech/webhooks/purchase-success",
-        failure: "https://checkout.webconf.tech/webhooks/purchase-failure",
-        pending: "https://checkout.webconf.tech/webhooks/purchase-pending"
+        success: `${WEBCONF_CHECKOUT_URL}/${MP_BACK_URL_SUCCESS}`,
+        failure: `${WEBCONF_CHECKOUT_URL}/${MP_BACK_URL_FAILURE}`,
+        pending: `${WEBCONF_CHECKOUT_URL}/${MP_BACK_URL_PENDING}`
       },
       auto_return: "approved",
       // TODO: Enable this feature when the IPN webhook is working.
