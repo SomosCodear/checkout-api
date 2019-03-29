@@ -21,6 +21,8 @@ import BitmapFonts from "./utils/graphics/fonts";
 import purchaseFailedWebhook from "./webhooks/purchase-failed";
 import purchasePendingWebhook from "./webhooks/purchase-pending";
 import purchaseSuccessWebhook from "./webhooks/purchase-success";
+import HypeProcessor from "./resources/hype/processor";
+import Hype from "./resources/hype/resource";
 
 MercadoPago.configure({
   client_id: process.env.MP_CLIENT_ID,
@@ -39,12 +41,13 @@ const db = { client: "pg", connection };
 
 const application = new Application({
   namespace: "api",
-  types: [Purchase, Ticket, Customer, Payment],
+  types: [Purchase, Ticket, Customer, Payment, Hype],
   processors: [
     new PurchaseProcessor(db),
     new TicketProcessor(db),
     new CustomerProcessor(db),
-    new PaymentProcessor(db)
+    new PaymentProcessor(db),
+    new HypeProcessor(db)
   ]
 });
 
