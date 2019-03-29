@@ -189,7 +189,7 @@ const renderTicket = async (
 };
 
 const ticketUrl = (id: string) =>
-  `https://checkout.webconf.tech/e-ticket?id=${id}&format=ticket`;
+  `https://checkout.webconf.tech/e-ticket?id=${id}`;
 
 const createIcal = (ticket: Ticket) =>
   ical({
@@ -300,7 +300,7 @@ export default (application: Application) => {
         ctx.set("Content-Disposition", `inline;filename=ical-${ticket.id}.ics`);
       }
 
-      const result = calendarEvent.toString();
+      const result = calendarEvent.toString().replace(/\n /g, "");
       ctx.body = result;
 
       if (ctx.request.query.internalCall) {
