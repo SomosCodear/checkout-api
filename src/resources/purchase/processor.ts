@@ -130,16 +130,23 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       MP_BACK_URL_FAILURE
     } = process.env;
     const preferenceConfiguration = {
-      items: tickets.map(ticket => ({
-        id: "WEBCONF-TICKET",
-        title: "Entradas WebConf 2019",
-        quantity: quantitiesByType[ticket.ticketTypeId as string],
-        currency_id: "ARS",
-        unit_price: process.env.USE_FAKE_PAYMENTS ? 2 : Number(ticket.price),
-        picture_url:
-          "https://mla-s2-p.mlstatic.com/752385-MLA29687494966_032019-N.jpg",
-        category_id: "tickets"
-      })),
+      items: tickets.map(ticket => {
+        const quantity = quantitiesByType[ticket.ticketTypeId as string];
+        const titles = {
+          1: "Entrada",
+          2: "Par de Entradas",
+          3: "Trío de Entradas"
+        };
+        return {
+          id: `WEBCONF-TICKET-${quantity}`,
+          title: `${titles[quantity]} para Córdoba WebConf 2019`,
+          quantity,
+          currency_id: "ARS",
+          unit_price: process.env.USE_FAKE_PAYMENTS ? 2 : Number(ticket.price),
+          picture_url: process.env.MP_TICKET_PICTURE_URL,
+          category_id: "tickets"
+        };
+      }),
       payment_methods: {
         excluded_payment_types: (process.env.MP_EXCLUDED_PAYMENT_TYPES || "")
           .split(",")
