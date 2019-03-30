@@ -1,8 +1,25 @@
-import { KnexProcessor, Operation, Resource } from "@joelalejandro/jsonapi-ts";
+import {
+  JsonApiErrors,
+  KnexProcessor,
+  Operation,
+  Resource
+} from "@joelalejandro/jsonapi-ts";
 import Hype from "./resource";
 
 export default class HypeProcessor extends KnexProcessor {
   public resourceClass = Hype;
+
+  public async delete() {
+    throw JsonApiErrors.AccessDenied();
+  }
+
+  public async add(op: Operation): Promise<Resource> {
+    throw JsonApiErrors.AccessDenied();
+  }
+
+  public async update(op: Operation): Promise<Resource> {
+    throw JsonApiErrors.AccessDenied();
+  }
 
   public async get(op: Operation): Promise<Hype[]> {
     if (!((op.params || { include: [] }).include || []).includes("y-eia")) {

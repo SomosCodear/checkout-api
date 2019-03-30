@@ -1,4 +1,8 @@
-import { KnexProcessor, Operation } from "@joelalejandro/jsonapi-ts";
+import {
+  JsonApiErrors,
+  KnexProcessor,
+  Operation
+} from "@joelalejandro/jsonapi-ts";
 import {
   ALLOWED_EMAIL_FORMAT,
   ALLOWED_IDENTIFICATION_TYPES
@@ -62,6 +66,10 @@ export default class CustomerProcessor extends KnexProcessor<Customer> {
       ...op,
       data: customer
     } as Operation);
+  }
+
+  public async delete() {
+    throw JsonApiErrors.AccessDenied();
   }
 
   private asResource(customerObject): Customer {

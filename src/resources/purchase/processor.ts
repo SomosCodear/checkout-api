@@ -1,5 +1,5 @@
 import {
-  JsonApiParams,
+  JsonApiErrors,
   KnexProcessor,
   Operation,
   Resource,
@@ -61,6 +61,10 @@ export default class PurchaseProcessor extends KnexProcessor<Purchase> {
       .update({
         status: "paid"
       });
+  }
+
+  public async delete() {
+    throw JsonApiErrors.AccessDenied();
   }
 
   private async getTickets(

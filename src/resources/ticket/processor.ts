@@ -1,7 +1,8 @@
 import {
   KnexProcessor,
   Operation,
-  ResourceRelationship
+  ResourceRelationship,
+  JsonApiErrors
 } from "@joelalejandro/jsonapi-ts";
 import Errors from "../../errors";
 import Ticket from "./resource";
@@ -96,6 +97,10 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
     delete updatedTicket.attributes.purchaseId;
 
     return updatedTicket;
+  }
+
+  public async delete() {
+    throw JsonApiErrors.AccessDenied();
   }
 
   private async getFirstSellableTicketId(): Promise<string> {

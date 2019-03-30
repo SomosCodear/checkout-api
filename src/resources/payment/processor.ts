@@ -1,4 +1,8 @@
-import { KnexProcessor, Operation } from "@joelalejandro/jsonapi-ts";
+import {
+  JsonApiErrors,
+  KnexProcessor,
+  Operation
+} from "@joelalejandro/jsonapi-ts";
 import Payment from "./resource";
 
 const calculateGatewayFee = (totalPrice: number) =>
@@ -56,5 +60,13 @@ export default class PaymentProcessor extends KnexProcessor<Payment> {
       meta: {},
       params: {}
     } as Operation);
+  }
+
+  public async update(): Promise<Payment> {
+    throw JsonApiErrors.AccessDenied();
+  }
+
+  public async delete() {
+    throw JsonApiErrors.AccessDenied();
   }
 }
