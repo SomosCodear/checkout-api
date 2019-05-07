@@ -28,10 +28,9 @@ export default class CustomerProcessor extends KnexProcessor<Customer> {
   }
 
   public async getAll(): Promise<Customer[]> {
-    return (await super.get({
-      op: "get",
-      ref: { type: "Customer", id: "", lid: "", relationship: "" }
-    } as Operation)).map(this.asResource.bind(this));
+    return (await this.knex("Customers").select()).map(
+      this.asResource.bind(this)
+    );
   }
 
   public async add(op: Operation): Promise<Customer> {
