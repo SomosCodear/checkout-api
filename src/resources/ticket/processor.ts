@@ -36,6 +36,14 @@ export default class TicketProcessor extends KnexProcessor<Ticket> {
     return (await super.get(op)).map(this.asResource.bind(this));
   }
 
+  public async getAllOwned(): Promise<Ticket[]> {
+    return (await this.knex("Tickets")
+      .where({
+        status: "owned"
+      })
+      .select()).map(this.asResource.bind(this));
+  }
+
   public async markForSale(id: string): Promise<void> {
     await this.knex("Tickets")
       .update({
