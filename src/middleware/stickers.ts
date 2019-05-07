@@ -13,6 +13,10 @@ export default function(application: Application) {
   } as Operation) as CustomerProcessor;
 
   return async (ctx: Context, next: () => Promise<void>) => {
+    if (!ctx.url.endsWith("stickers")) {
+      return next();
+    }
+
     const tickets = await ticketProcessor.getAllOwned();
     const customers = await customerProcessor.getAll();
 
